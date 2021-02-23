@@ -12,7 +12,9 @@ def get_version():
 
 # Dependencies (format is 'PYPI_PACKAGE_NAME[>]=VERSION_NUMBER')
 BASE_DEPENDENCIES = [
-    'wf-minimal-honeycomb-python>=0.6.0'
+    'wf-minimal-honeycomb-python>=0.6.0',
+    'pandas>=1.2.2',
+    'numpy>=1.20.1'
 ]
 
 # TEST_DEPENDENCIES = [
