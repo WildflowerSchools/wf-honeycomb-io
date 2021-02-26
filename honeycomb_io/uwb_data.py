@@ -2,6 +2,7 @@ import honeycomb_io.core
 import minimal_honeycomb
 import pandas as pd
 import numpy as np
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -47,8 +48,24 @@ def fetch_uwb_data_data_id(
     )
     datapoint_timestamp=minimal_honeycomb.from_honeycomb_datetime(result.get('timestamp'))
     assignment_id=result.get('source', {}).get('assignment_id')
-    parsed_blob = client.parse_data_blob(result.get('file', {}).get('data'))
-    df = pd.DataFrame(parsed_blob)
+    data_jsonl_json = result.get('file', {}).get('data')
+    if data_jsonl_json is None:
+        logger.warn('No UWB data returned')
+        return pd.DataFrame()
+    try:
+        data_jsonl = json.loads(data_jsonl_json)
+    except:
+        raise ValueError('Expected JSONL wrapped as JSON, but JSON deserialization failed')
+    if not isinstance(data_jsonl, str):
+        raise ValueError('Expected JSONL but got type \'{}\''.format(type(data_jsonl)))
+    data_dict_list = list()
+    for data_jsonl_line in data_jsonl.split('\n'):
+        try:
+            data_dict_list.append(json.loads(data_jsonl_line))
+        except:
+            logger.warn('Encountered malformed JSONL line. Omitting.')
+            continue
+    df = pd.DataFrame(data_dict_list)
     original_columns = df.columns.tolist()
     df['assignment_id'] = assignment_id
     new_columns = ['assignment_id'] + original_columns
