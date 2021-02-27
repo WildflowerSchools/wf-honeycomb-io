@@ -3,7 +3,6 @@ import honeycomb_io.environments
 import honeycomb_io.devices
 import honeycomb_io.materials
 import minimal_honeycomb
-import database_connection_honeycomb
 import pandas as pd
 import numpy as np
 import datetime
