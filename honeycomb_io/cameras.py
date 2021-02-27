@@ -1,5 +1,6 @@
 import honeycomb_io.core
 import minimal_honeycomb
+import pandas as pd
 import numpy as np
 import logging
 
@@ -513,3 +514,169 @@ def fetch_camera_device_id_lookup(
     for datum in result:
         camera_device_id_lookup[datum.get('assignment_id')] = datum.get('assigned').get('device_id')
     return camera_device_id_lookup
+
+def fetch_camera_info(
+    environment_name,
+    start_time,
+    end_time,
+    camera_device_types=DEFAULT_CAMERA_DEVICE_TYPES
+):
+    logger.info('Fetching camera info between start time {} and end time {} for environment {}'.format(
+        start_time.isoformat(),
+        end_time.isoformat(),
+        environment_name
+    ))
+    device_ids = fetch_camera_device_ids(
+        environment_name=environment_name,
+        start_time=start_time,
+        end_time=end_time,
+        camera_device_types=camera_device_types
+    )
+    logger.info('Fetching camera info between start time {} and end time {} for the following device_ids: {}'.format(
+        start_time.isoformat(),
+        end_time.isoformat(),
+        device_ids
+    ))
+    client = minimal_honeycomb.MinimalHoneycombClient()
+    result = client.request(
+        request_type='query',
+        request_name='searchDevices',
+        arguments={
+            'query': {
+                'type': 'QueryExpression!',
+                'value': {
+                    'field': 'device_id',
+                    'operator': 'IN',
+                    'values': device_ids
+                }
+            }
+        },
+        return_object=[
+            {'data': [
+                'device_id',
+                'name',
+                {'intrinsic_calibrations': [
+                    'start',
+                    'end',
+                    'camera_matrix',
+                    'distortion_coefficients',
+                    'image_width',
+                    'image_height'
+                ]},
+                {'extrinsic_calibrations': [
+                    'start',
+                    'end',
+                    'translation_vector',
+                    'rotation_vector'
+                ]}
+            ]}
+        ]
+    )
+    devices = result.get('data')
+    camera_info_dict = dict()
+    for device in devices:
+        intrinsic_calibration = extract_assignment(
+            assignments=device['intrinsic_calibrations'],
+            start_time=start_time,
+            end_time=end_time
+        )
+        if intrinsic_calibration is None:
+            continue
+        extrinsic_calibration = extract_assignment(
+            assignments=device['extrinsic_calibrations'],
+            start_time=start_time,
+            end_time=end_time
+        )
+        if extrinsic_calibration is None:
+            continue
+        camera_info_dict[device['device_id']] = {
+            'device_name': device['name'],
+            'camera_matrix': intrinsic_calibration['camera_matrix'],
+            'distortion_coefficients': intrinsic_calibration['distortion_coefficients'],
+            'image_width': intrinsic_calibration['image_width'],
+            'image_height': intrinsic_calibration['image_height'],
+            'translation_vector': extrinsic_calibration['translation_vector'],
+            'rotation_vector': extrinsic_calibration['rotation_vector'],
+        }
+    return camera_info_dict
+
+
+def fetch_camera_device_ids(
+    environment_name,
+    start_time,
+    end_time,
+    camera_device_types=DEFAULT_CAMERA_DEVICE_TYPES
+):
+    client = minimal_honeycomb.MinimalHoneycombClient()
+    result = client.request(
+        request_type='query',
+        request_name='findEnvironments',
+        arguments={
+            'name': {
+                'type': 'String',
+                'value': environment_name
+            }
+        },
+        return_object=[
+            {'data': [
+                {'assignments': [
+                    'start',
+                    'end',
+                    'assigned_type',
+                    {'assigned': [
+                        '__typename',
+                        {'... on Device': [
+                            'device_id',
+                            'device_type'
+                        ]}
+                    ]}
+                ]}
+            ]}
+        ]
+    )
+    environments = result.get('data')
+    if len(environments) == 0:
+        raise ValueError(
+            'No environments match environment name {}'.format(environment_name))
+    if len(environments) > 1:
+        raise ValueError(
+            'More than one environments matched name {}'.format(environment_name))
+    assignments = environments[0].get('assignments')
+    camera_device_ids = list()
+    for assignment in assignments:
+        if assignment.get('start') is not None and (pd.to_datetime(
+                assignment.get('start')).to_pydatetime() > end_time):
+            continue
+        if assignment.get('end') is not None and (pd.to_datetime(
+                assignment.get('end')).to_pydatetime() < start_time):
+            continue
+        if assignment.get('assigned').get('__typename') != 'Device':
+            continue
+        if assignment.get('assigned').get(
+                'device_type') not in camera_device_types:
+            continue
+        camera_device_ids.append(assignment.get('assigned').get('device_id'))
+    return camera_device_ids
+
+def extract_assignment(
+    assignments,
+    start_time,
+    end_time
+):
+    matched_assignments = list()
+    for assignment in assignments:
+        if assignment.get('start') is not None and (pd.to_datetime(
+                assignment.get('start')).to_pydatetime() > end_time):
+            continue
+        if assignment.get('end') is not None and (pd.to_datetime(
+                assignment.get('end')).to_pydatetime() < start_time):
+            continue
+        matched_assignments.append(assignment)
+    if len(matched_assignments) == 0:
+        return None
+    if len(matched_assignments) > 1:
+        raise ValueError('Multiple assignments matched start time {} and end time {}'.format(
+            start_time.isoformat(),
+            end_time.isoformat()
+        ))
+    return matched_assignments[0]
