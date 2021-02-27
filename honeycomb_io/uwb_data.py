@@ -436,10 +436,14 @@ def fetch_uwb_data_data_id(
         raise ValueError('Expected JSONL but got type \'{}\''.format(type(data_jsonl)))
     data_dict_list = list()
     for data_jsonl_line in data_jsonl.split('\n'):
+        if len(data_jsonl_line) == 0:
+            continue
         try:
             data_dict_list.append(json.loads(data_jsonl_line))
         except:
-            logger.warn('Encountered malformed JSONL line. Omitting.')
+            logger.warn('Encountered malformed JSONL line. Omitting: {}'.format(
+                data_jsonl_line
+            ))
             continue
     df = pd.DataFrame(data_dict_list)
     original_columns = df.columns.tolist()
