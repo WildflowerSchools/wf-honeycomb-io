@@ -1,8 +1,11 @@
 from .core import *
 from .environments import *
+from .devices import *
+from .cameras import *
 from .inference_executions import *
 from .persons import *
-from .cameras import *
+from .trays import *
+from .materials import *
 from .uwb_data import *
 from .poses import *
 

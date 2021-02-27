@@ -1,5 +1,6 @@
 import honeycomb_io.core
 import minimal_honeycomb
+import pandas as pd
 import logging
 
 logger = logging.getLogger(__name__)
@@ -52,4 +53,28 @@ def fetch_environment_id(
         environment_id = result[0].get('environment_id')
         logger.info('Found environment ID for specified environment name')
         return environment_id
+    return None
+
+def fetch_environment_by_name(environment_name):
+    logger.info('Fetching Environments data')
+    client = minimal_honeycomb.MinimalHoneycombClient()
+    result = client.request(
+        request_type="query",
+        request_name="environments",
+        arguments=None,
+        return_object=[
+            {'data':
+                [
+                    'environment_id',
+                    'name'
+                ]
+             }
+        ]
+    )
+    logger.info('Found environments data: {} records'.format(
+        len(result.get('data'))))
+    df = pd.DataFrame(result.get('data'))
+    df = df[df['name'].str.lower().isin([environment_name.lower()])].reset_index(drop=True)
+    if len(df) > 0:
+        return df.loc[0]
     return None
