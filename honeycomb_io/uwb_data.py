@@ -422,7 +422,7 @@ def fetch_uwb_data_data_id(
             ]}
         ]
     )
-    datapoint_timestamp=minimal_honeycomb.minimal_honeycomb.from_honeycomb_datetime(result.get('timestamp'))
+    datapoint_timestamp=minimal_honeycomb.from_honeycomb_datetime(result.get('timestamp'))
     assignment_id=result.get('source', {}).get('assignment_id')
     data_jsonl_json = result.get('file', {}).get('data')
     if data_jsonl_json is None:
