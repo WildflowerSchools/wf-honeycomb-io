@@ -1,4 +1,5 @@
 import honeycomb_io.core
+import honeycomb_io.environments
 import honeycomb_io.devices
 import honeycomb_io.materials
 import minimal_honeycomb
@@ -17,49 +18,55 @@ def fetch_raw_cuwb_data(
         environment_name,
         start_time,
         end_time,
-        read_chunk_size=2,
+        read_chunk_size=None,
         device_type='UWBTAG',
         environment_assignment_info=False,
         entity_assignment_info=False
 ):
+    if read_chunk_size is not None:
+        logger.warn('Read chunk size option removed from fetch_raw_cuwb_data()')
     logger.info("Fetching raw CUWB tag device data for {} from {} to {}".format(environment_name, start_time, end_time))
-    object_type_honeycomb = 'DEVICE'
-    object_id_field_name_honeycomb = 'device_type'
-    object_ids = [device_type]
-    dbc = database_connection_honeycomb.DatabaseConnectionHoneycomb(
-        environment_name_honeycomb=environment_name,
-        time_series_database=True,
-        object_database=True,
-        object_type_honeycomb=object_type_honeycomb,
-        object_id_field_name_honeycomb=object_id_field_name_honeycomb,
-        read_chunk_size=read_chunk_size
+    tag_assignments_df = honeycomb_io.environments.fetch_device_assignments(
+        start=start_time,
+        end=end_time,
+        environment_id=None,
+        environment_name=environment_name,
+        device_type=device_type
     )
-    data = dbc.fetch_data_object_time_series(
-        start_time=start_time,
-        end_time=end_time,
-        object_ids=object_ids
+    tag_assignment_ids = tag_assignments_df.index.tolist()
+    logger.info('Found {} tag assignmens for specified environment and time period'.format(
+        len(tag_assignment_ids)
+    ))
+    data_ids = fetch_uwb_data_ids(
+        datapoint_timestamp_min=start_time,
+        datapoint_timestamp_max=end_time,
+        assignment_ids=tag_assignment_ids
     )
-    df = pd.DataFrame(data)
+    logger.info('Found {} UWB data points for these tag assignments and specified time period'.format(
+        len(data_ids)
+    ))
+    df_list = list()
+    for data_id in data_ids:
+        data_id_df = fetch_uwb_data_data_id(
+            data_id=data_id
+        )
+        df_list.append(data_id_df)
+    df = pd.concat(df_list)
     if len(df) == 0:
         return df
     df.drop(
         columns=[
-            'timestamp',
-            'environment_name',
-            'object_id',
             'memory',
             'flags',
             'minutes_remaining',
             'processor_usage',
-            'network_time',
-            'object_id_secondary'
+            'network_time'
         ],
         inplace=True,
         errors='ignore'
     )
     df.rename(
         columns={
-            'timestamp_secondary': 'timestamp',
             'serial_number': 'device_serial_number'
         },
         inplace=True
