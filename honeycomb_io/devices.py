@@ -4,6 +4,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Used by:
+# honeycomb_io.uwb_data
 def fetch_entity_info():
     logger.info(
         'Fetching entity assignment info to extract tray and person names')

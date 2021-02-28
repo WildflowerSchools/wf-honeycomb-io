@@ -7,6 +7,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Used by:
+# honeycomb_io.poses
 def fetch_inference_ids(
     inference_ids=None,
     inference_names=None,
@@ -75,6 +77,7 @@ def fetch_inference_ids(
         return inference_ids
     return None
 
+# Not currently used
 def create_inference_execution(
     execution_start=None,
     name=None,
@@ -130,6 +133,7 @@ def create_inference_execution(
         raise ValueError('Received unexpected response from Honeycomb: {}'.format(result))
     return inference_id
 
+# Not currently used
 def delete_inference_execution(
     inference_id,
     client=None,

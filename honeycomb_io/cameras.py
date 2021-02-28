@@ -1,4 +1,5 @@
 import honeycomb_io.core
+import honeycomb_io.environments
 import minimal_honeycomb
 import pandas as pd
 import numpy as np
@@ -12,6 +13,8 @@ DEFAULT_CAMERA_DEVICE_TYPES = [
     'PIZEROWITHCAMERA'
 ]
 
+# Used by:
+# honeycomb_io.poses
 def fetch_camera_ids_from_environment(
     start=None,
     end=None,
@@ -85,6 +88,8 @@ def fetch_camera_ids_from_environment(
     logger.info('Found {} camera assignments for specified environment and time span'.format(len(camera_device_ids)))
     return camera_device_ids
 
+# Used by:
+# process_pose_data.process (wf-process-pose-data)
 def fetch_camera_assignment_ids_from_environment(
     start=None,
     end=None,
@@ -159,6 +164,8 @@ def fetch_camera_assignment_ids_from_environment(
     logger.info('Found {} camera assignments for specified environment and time span'.format(len(camera_assignment_ids)))
     return camera_assignment_ids
 
+# Used by:
+# honeycomb_io.poses
 def fetch_camera_ids_from_camera_properties(
     camera_ids=None,
     camera_device_types=None,
@@ -234,6 +241,10 @@ def fetch_camera_ids_from_camera_properties(
         return camera_ids
     return None
 
+# Used by:
+# process_pose_data.filter (wf-process-pose_data)
+# process_pose_data.overlay (wf-process-pose_data)
+# process_pose_data.visualize (wf-process-pose-data)
 def fetch_camera_names(
     camera_ids,
     chunk_size=100,
@@ -276,6 +287,10 @@ def fetch_camera_names(
     logger.info('Fetched {} camera names'.format(len(camera_names)))
     return camera_names
 
+# Used by:
+# process_pose_data.overlay (wf-process-pose_data)
+# process_pose_data.process (wf-process-pose_data)
+# process_pose_data.reconstruct (wf-process-pose-data)
 def fetch_camera_calibrations(
     camera_ids,
     start=None,
@@ -472,6 +487,9 @@ def fetch_extrinsic_calibrations(
         raise ValueError('More than one coordinate space found among fetched calibrations')
     return extrinsic_calibrations
 
+# Used by:
+# process_pose_data.local_io (wf-process-pose_data)
+# process_pose_data.process (wf-process-pose-data)
 def fetch_camera_device_id_lookup(
     assignment_ids,
     client=None,
@@ -515,6 +533,8 @@ def fetch_camera_device_id_lookup(
         camera_device_id_lookup[datum.get('assignment_id')] = datum.get('assigned').get('device_id')
     return camera_device_id_lookup
 
+# Used by:
+# process_cuwb_data.geom_render (wf-process-cuwb-data)
 def fetch_camera_info(
     environment_name,
     start_time,
@@ -600,7 +620,8 @@ def fetch_camera_info(
         }
     return camera_info_dict
 
-
+# Used by:
+# process_cuwb_data.geom_render (wf-process-cuwb-data)
 def fetch_camera_device_ids(
     environment_name,
     start_time,

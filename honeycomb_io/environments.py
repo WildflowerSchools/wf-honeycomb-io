@@ -5,6 +5,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Used by:
+# honeycomb_io.cameras
 def fetch_environment_id(
     environment_id=None,
     environment_name=None,
@@ -55,6 +57,8 @@ def fetch_environment_id(
         return environment_id
     return None
 
+# Used by:
+# process_cuwb_data.core (wf-process-cuwb-data)
 def fetch_environment_by_name(environment_name):
     logger.info('Fetching Environments data')
     client = minimal_honeycomb.MinimalHoneycombClient()
@@ -79,6 +83,8 @@ def fetch_environment_by_name(environment_name):
         return df.loc[0]
     return None
 
+# Used by:
+# honeycomb_io.uwb_data
 def fetch_device_assignments(
     start,
     end,

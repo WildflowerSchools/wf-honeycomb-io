@@ -8,6 +8,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# The following functions are used by process_pose_data.geom_render
+# (wf-process-pose_data) but not implemented here:
+# fetch_2d_pose_data_by_inference_execution()
+# fetch_2d_pose_data_by_time_span()
+# extract_pose_model_id()
+# fetch_pose_model_info()
+
+# Not currently used
 def fetch_2d_pose_data(
     start=None,
     end=None,
@@ -204,6 +212,7 @@ def fetch_2d_pose_data(
     poses_2d_df = poses_2d_df.reindex(columns=return_columns)
     return poses_2d_df
 
+# Not currently used
 def search_2d_poses(
     query_list,
     return_data,
@@ -232,6 +241,7 @@ def search_2d_poses(
     logger.info('Fetched {} poses'.format(len(result)))
     return result
 
+# Not currently used
 def fetch_3d_pose_data(
     start=None,
     end=None,
@@ -389,6 +399,7 @@ def fetch_3d_pose_data(
     poses_3d_df = poses_3d_df.reindex(columns=return_columns)
     return poses_3d_df
 
+# Not currently used
 def search_3d_poses(
     query_list,
     return_data,
@@ -417,6 +428,7 @@ def search_3d_poses(
     logger.info('Fetched {} poses'.format(len(result)))
     return result
 
+# Not currently used
 def fetch_3d_pose_track_data(
     inference_ids=None,
     inference_names=None,
@@ -494,6 +506,7 @@ def fetch_3d_pose_track_data(
     pose_tracks_3d_df = pose_tracks_3d_df.reindex(columns=return_columns)
     return pose_tracks_3d_df
 
+# Not currently used
 def search_pose_tracks_3d(
     query_list,
     return_data,
@@ -522,6 +535,7 @@ def search_pose_tracks_3d(
     logger.info('Fetched {} pose tracks'.format(len(result)))
     return result
 
+# Not currently used
 def fetch_pose_model_id(
     pose_model_id=None,
     pose_model_name=None,
@@ -575,6 +589,8 @@ def fetch_pose_model_id(
         return pose_model_id
     return None
 
+# Used by:
+# process_pose_data.overlay (wf-process-pose-data)
 def fetch_pose_model(
     pose_2d_id,
     client=None,
@@ -615,6 +631,9 @@ def fetch_pose_model(
     pose_model = result.get('pose_model')
     return pose_model
 
+# Used by:
+# process_pose_data.overlay (wf-process-pose_data)
+# process_pose_data.reconstruct (wf-process-pose-data)
 def fetch_pose_model_by_pose_model_id(
     pose_model_id,
     client=None,
@@ -653,6 +672,7 @@ def fetch_pose_model_by_pose_model_id(
     pose_model = result
     return pose_model
 
+# Not currently used
 def fetch_inference_ids_reconstruct_3d_poses(
     chunk_size=100,
     client=None,
@@ -686,6 +706,7 @@ def fetch_inference_ids_reconstruct_3d_poses(
     inference_ids = [datum.get('inference_id') for datum in result]
     return inference_ids
 
+# Not currently used
 def write_3d_pose_data(
     poses_3d_df,
     coordinate_space_id=None,
@@ -778,6 +799,7 @@ def write_3d_pose_data(
         raise ValueError('Received unexpected result from Honeycomb:\n{}'.format(result))
     return pose_3d_ids
 
+# Not currently used
 def delete_3d_pose_data_by_inference_id(
     inference_id,
     chunk_size=100,
@@ -810,6 +832,7 @@ def delete_3d_pose_data_by_inference_id(
     )
     return pose_ids
 
+# Not currently used
 def fetch_pose_3d_ids(
     inference_id,
     chunk_size=100,
@@ -840,6 +863,7 @@ def fetch_pose_3d_ids(
     pose_ids = [datum.get('pose_id') for datum in result]
     return pose_ids
 
+# Not currently used
 def delete_3d_pose_data_by_pose_ids(
     pose_ids,
     chunk_size=100,
@@ -874,6 +898,7 @@ def delete_3d_pose_data_by_pose_ids(
     statuses = [datum.get('status') for datum in result]
     return statuses
 
+# Not currently used
 def write_pose_tracks_3d(
     poses_3d_df,
     source_id,
