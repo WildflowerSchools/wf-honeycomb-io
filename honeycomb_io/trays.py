@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Not currently used
 def fetch_tray_ids():
     logger.info('Fetching entity assignment info to extract tray IDs')
     client = minimal_honeycomb.MinimalHoneycombClient()

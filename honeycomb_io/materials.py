@@ -4,6 +4,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Used by:
+# honeycomb_io.uwb_data
 def fetch_material_names(
 ):
     logger.info('Fetching material assignment info to extract material names')
@@ -36,6 +38,8 @@ def fetch_material_names(
     ))
     return df
 
+# Used by:
+# honeycomb_io.uwb_data
 def fetch_material_assignments():
     logger.info('Fetching material assignment IDs')
     client = minimal_honeycomb.MinimalHoneycombClient()

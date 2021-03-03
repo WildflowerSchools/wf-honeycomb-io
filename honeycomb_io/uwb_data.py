@@ -1,4 +1,5 @@
 import honeycomb_io.core
+import honeycomb_io.utils
 import honeycomb_io.environments
 import honeycomb_io.devices
 import honeycomb_io.materials
@@ -13,6 +14,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Used by:
+# process_cuwb_data.core (wf-process-cuwb-data)
+# process_cuwb_data.geom_render (wf-process-cuwb-data)
 def fetch_raw_cuwb_data(
         environment_name,
         start_time,
@@ -293,6 +297,8 @@ def add_assignment_ids(
                 ] = assignment[assignment_field_name]
     return df
 
+# Used by:
+# process_cuwb_data.core (wf-process-cuwb-data)
 def fetch_material_tray_devices_assignments(environment_id, start_time, end_time):
 
     hc_start_time = minimal_honeycomb.to_honeycomb_datetime(start_time)
@@ -366,10 +372,10 @@ def fetch_material_tray_devices_assignments(environment_id, start_time, end_time
         for material_assignment in env_assignment['assigned.material_assignments']:
             tray = material_assignment['tray']
 
-            if (minimal_honeycomb.from_honeycomb_datetime(material_assignment['start']) > end_time or
+            if (honeycomb_io.utils.from_honeycomb_datetime(material_assignment['start']) > end_time or
                     (
                 material_assignment['end'] is not None and
-                minimal_honeycomb.from_honeycomb_datetime(material_assignment['end']) < start_time
+                honeycomb_io.utils.from_honeycomb_datetime(material_assignment['end']) < start_time
             )):
                 continue
 
@@ -390,6 +396,8 @@ def fetch_material_tray_devices_assignments(environment_id, start_time, end_time
     df = pd.DataFrame.from_dict(records, orient='index')
     return df
 
+# Used by:
+# process_pose_data.process (wf-process-pose-data)
 def fetch_uwb_data_data_id(
     data_id,
     client=None,
@@ -428,7 +436,7 @@ def fetch_uwb_data_data_id(
             ]}
         ]
     )
-    datapoint_timestamp=minimal_honeycomb.from_honeycomb_datetime(result.get('timestamp'))
+    datapoint_timestamp=honeycomb_io.utils.from_honeycomb_datetime(result.get('timestamp'))
     assignment_id=result.get('source', {}).get('assignment_id')
     data_jsonl_json = result.get('file', {}).get('data')
     if data_jsonl_json is None:
@@ -471,6 +479,8 @@ def fetch_uwb_data_data_id(
     ))
     return df
 
+# Used by:
+# process_pose_data.process (wf-process-pose-data)
 def extract_position_data(
     df
 ):
@@ -496,6 +506,8 @@ def extract_position_data(
     ])
     return df
 
+# Used by:
+# process_pose_data.process (wf-process-pose-data)
 def fetch_uwb_data_ids(
     datapoint_timestamp_min,
     datapoint_timestamp_max,
@@ -533,6 +545,8 @@ def fetch_uwb_data_ids(
     data_ids = [datum.get('data_id') for datum in result]
     return data_ids
 
+# Used by:
+# process_pose_data.process (wf-process-pose-data)
 def fetch_person_tag_info(
     start,
     end,

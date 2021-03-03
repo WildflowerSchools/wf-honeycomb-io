@@ -1,4 +1,5 @@
 import honeycomb_io.core
+import honeycomb_io.environments
 import minimal_honeycomb
 import pandas as pd
 import numpy as np
@@ -12,6 +13,116 @@ DEFAULT_CAMERA_DEVICE_TYPES = [
     'PIZEROWITHCAMERA'
 ]
 
+# Used by:
+# camera_calibration.colmap (wf-camera-calibration)
+def write_intrinsic_calibration_data(
+    data,
+    start_datetime,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    intrinsic_calibration_data_columns = [
+        'device_id',
+        'image_width',
+        'image_height',
+        'camera_matrix',
+        'distortion_coefficients'
+    ]
+    if not set(intrinsic_calibration_data_columns).issubset(set(data.columns)):
+        raise ValueError('Data must contain the following columns: {}'.format(
+            intrinsic_calibration_data_columns
+        ))
+    intrinsic_calibration_data_df = data.reset_index().reindex(columns=intrinsic_calibration_data_columns)
+    intrinsic_calibration_data_df.rename(columns={'device_id': 'device'}, inplace=True)
+    intrinsic_calibration_data_df['start'] = minimal_honeycomb.to_honeycomb_datetime(start_datetime)
+    intrinsic_calibration_data_df['camera_matrix'] = intrinsic_calibration_data_df['camera_matrix'].apply(lambda x: x.tolist())
+    intrinsic_calibration_data_df['distortion_coefficients'] = intrinsic_calibration_data_df['distortion_coefficients'].apply(lambda x: x.tolist())
+    records = intrinsic_calibration_data_df.to_dict(orient='records')
+    if client is None:
+        client = minimal_honeycomb.MinimalHoneycombClient(
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    result=client.bulk_mutation(
+        request_name='createIntrinsicCalibration',
+        arguments={
+            'intrinsicCalibration': {
+                'type': 'IntrinsicCalibrationInput',
+                'value': records
+            }
+        },
+        return_object=[
+            'intrinsic_calibration_id'
+        ]
+    )
+    ids = None
+    if len(result) > 0:
+        ids = [datum.get('intrinsic_calibration_id') for datum in result]
+    return ids
+
+# Used by:
+# camera_calibration.colmap (wf-camera-calibration)
+def write_extrinsic_calibration_data(
+    data,
+    start_datetime,
+    coordinate_space_id,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    extrinsic_calibration_data_columns = [
+        'device_id',
+        'rotation_vector',
+        'translation_vector'
+    ]
+    if not set(extrinsic_calibration_data_columns).issubset(set(data.columns)):
+        raise ValueError('Data must contain the following columns: {}'.format(
+            extrinsic_calibration_data_columns
+        ))
+    extrinsic_calibration_data_df = data.reset_index().reindex(columns=extrinsic_calibration_data_columns)
+    extrinsic_calibration_data_df.rename(columns={'device_id': 'device'}, inplace=True)
+    extrinsic_calibration_data_df['start'] = minimal_honeycomb.to_honeycomb_datetime(start_datetime)
+    extrinsic_calibration_data_df['coordinate_space'] = coordinate_space_id
+    extrinsic_calibration_data_df['rotation_vector'] = extrinsic_calibration_data_df['rotation_vector'].apply(lambda x: x.tolist())
+    extrinsic_calibration_data_df['translation_vector'] = extrinsic_calibration_data_df['translation_vector'].apply(lambda x: x.tolist())
+    records = extrinsic_calibration_data_df.to_dict(orient='records')
+    if client is None:
+        client = minimal_honeycomb.MinimalHoneycombClient(
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    result=client.bulk_mutation(
+        request_name='createExtrinsicCalibration',
+        arguments={
+            'extrinsicCalibration': {
+                'type': 'ExtrinsicCalibrationInput',
+                'value': records
+            }
+        },
+        return_object=[
+            'extrinsic_calibration_id'
+        ]
+    )
+    ids = None
+    if len(result) > 0:
+        ids = [datum.get('extrinsic_calibration_id') for datum in result]
+    return ids
+
+# Used by:
+# honeycomb_io.poses
 def fetch_camera_ids_from_environment(
     start=None,
     end=None,
@@ -85,6 +196,9 @@ def fetch_camera_ids_from_environment(
     logger.info('Found {} camera assignments for specified environment and time span'.format(len(camera_device_ids)))
     return camera_device_ids
 
+# Used by:
+# process_pose_data.process (wf-process-pose-data)
+# video.core (wf-video-io)
 def fetch_camera_assignment_ids_from_environment(
     start=None,
     end=None,
@@ -159,6 +273,97 @@ def fetch_camera_assignment_ids_from_environment(
     logger.info('Found {} camera assignments for specified environment and time span'.format(len(camera_assignment_ids)))
     return camera_assignment_ids
 
+# Used by:
+# video_io.core (wf-video-io)
+def fetch_camera_assignment_ids_from_camera_properties(
+    start=None,
+    end=None,
+    camera_device_ids=None,
+    camera_part_numbers=None,
+    camera_names=None,
+    camera_serial_numbers=None,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if camera_device_ids is None and camera_names is None and camera_part_numbers is None and camera_serial_numbers is None:
+        return None
+    query_list=list()
+    if camera_device_ids is not None:
+        query_list.append({
+            'field': 'device_id',
+            'operator': 'IN',
+            'values': camera_device_ids
+        })
+    if camera_part_numbers is not None:
+        query_list.append({
+            'field': 'part_number',
+            'operator': 'IN',
+            'values': camera_part_numbers
+        })
+    if camera_names is not None:
+        query_list.append({
+            'field': 'name',
+            'operator': 'IN',
+            'values': camera_names
+        })
+    if camera_serial_numbers is not None:
+        query_list.append({
+            'field': 'serial_number',
+            'operator': 'IN',
+            'values': camera_serial_numbers
+        })
+    logger.info('Fetching camera assignments for cameras with specified properties')
+    if client is None:
+        client = minimal_honeycomb.MinimalHoneycombClient(
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    result = client.bulk_query(
+        request_name='searchDevices',
+        arguments={
+            'query': {
+                'type': 'QueryExpression!',
+                'value': {
+                    'operator': 'AND',
+                    'children': query_list
+                }
+            }
+        },
+        return_data=[
+            'device_id',
+            {'assignments': [
+                'assignment_id',
+                'start',
+                'end'
+            ]}
+        ],
+        id_field_name='device_id',
+        chunk_size=chunk_size
+    )
+    assignments = list()
+    for datum in result:
+        if datum.get('assignments') is not None and len(datum.get('assignments')) > 0:
+            assignments.extend(datum.get('assignments'))
+    filtered_assignments = minimal_honeycomb.filter_assignments(
+        assignments=assignments,
+        start_time=start,
+        end_time=end
+    )
+    if len(filtered_assignments) == 0:
+        raise ValueError('No camera assignments match specified camera device IDs/names/part numbers/serial numbers and time span')
+    camera_assignment_ids = [assignment.get('assignment_id') for assignment in filtered_assignments]
+    return camera_assignment_ids
+
+# Used by:
+# honeycomb_io.poses
 def fetch_camera_ids_from_camera_properties(
     camera_ids=None,
     camera_device_types=None,
@@ -234,6 +439,10 @@ def fetch_camera_ids_from_camera_properties(
         return camera_ids
     return None
 
+# Used by:
+# process_pose_data.filter (wf-process-pose_data)
+# process_pose_data.overlay (wf-process-pose_data)
+# process_pose_data.visualize (wf-process-pose-data)
 def fetch_camera_names(
     camera_ids,
     chunk_size=100,
@@ -276,6 +485,12 @@ def fetch_camera_names(
     logger.info('Fetched {} camera names'.format(len(camera_names)))
     return camera_names
 
+# Used by:
+# process_pose_data.overlay (wf-process-pose_data)
+# process_pose_data.process (wf-process-pose_data)
+# process_pose_data.reconstruct (wf-process-pose-data)
+# camera_calibration.colmap (wf-camera-calibration)
+# camera_calibration.visualize (wf-camera-calibration)
 def fetch_camera_calibrations(
     camera_ids,
     start=None,
@@ -472,6 +687,9 @@ def fetch_extrinsic_calibrations(
         raise ValueError('More than one coordinate space found among fetched calibrations')
     return extrinsic_calibrations
 
+# Used by:
+# process_pose_data.local_io (wf-process-pose_data)
+# process_pose_data.process (wf-process-pose-data)
 def fetch_camera_device_id_lookup(
     assignment_ids,
     client=None,
@@ -515,6 +733,8 @@ def fetch_camera_device_id_lookup(
         camera_device_id_lookup[datum.get('assignment_id')] = datum.get('assigned').get('device_id')
     return camera_device_id_lookup
 
+# Used by:
+# process_cuwb_data.geom_render (wf-process-cuwb-data)
 def fetch_camera_info(
     environment_name,
     start_time,
@@ -600,7 +820,8 @@ def fetch_camera_info(
         }
     return camera_info_dict
 
-
+# Used by:
+# process_cuwb_data.geom_render (wf-process-cuwb-data)
 def fetch_camera_device_ids(
     environment_name,
     start_time,

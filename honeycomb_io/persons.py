@@ -6,6 +6,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Used by:
+# process_pose_data.local_io (wf-process-pose-data)
 def fetch_person_info(
     environment_id,
     client=None,
