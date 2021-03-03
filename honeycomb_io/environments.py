@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 # Used by:
 # honeycomb_io.cameras
+# video_io.core (wf-video-io)
 def fetch_environment_id(
     environment_id=None,
     environment_name=None,

@@ -1,4 +1,5 @@
 import honeycomb_io.core
+import honeycomb_io.utils
 import honeycomb_io.environments
 import honeycomb_io.devices
 import honeycomb_io.materials
@@ -371,10 +372,10 @@ def fetch_material_tray_devices_assignments(environment_id, start_time, end_time
         for material_assignment in env_assignment['assigned.material_assignments']:
             tray = material_assignment['tray']
 
-            if (minimal_honeycomb.from_honeycomb_datetime(material_assignment['start']) > end_time or
+            if (honeycomb_io.utils.from_honeycomb_datetime(material_assignment['start']) > end_time or
                     (
                 material_assignment['end'] is not None and
-                minimal_honeycomb.from_honeycomb_datetime(material_assignment['end']) < start_time
+                honeycomb_io.utils.from_honeycomb_datetime(material_assignment['end']) < start_time
             )):
                 continue
 
@@ -435,7 +436,7 @@ def fetch_uwb_data_data_id(
             ]}
         ]
     )
-    datapoint_timestamp=minimal_honeycomb.from_honeycomb_datetime(result.get('timestamp'))
+    datapoint_timestamp=honeycomb_io.utils.from_honeycomb_datetime(result.get('timestamp'))
     assignment_id=result.get('source', {}).get('assignment_id')
     data_jsonl_json = result.get('file', {}).get('data')
     if data_jsonl_json is None:

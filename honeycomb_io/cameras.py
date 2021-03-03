@@ -90,6 +90,7 @@ def fetch_camera_ids_from_environment(
 
 # Used by:
 # process_pose_data.process (wf-process-pose-data)
+# video.core (wf-video-io)
 def fetch_camera_assignment_ids_from_environment(
     start=None,
     end=None,
@@ -162,6 +163,95 @@ def fetch_camera_assignment_ids_from_environment(
     if len(camera_assignment_ids) == 0:
         raise ValueError('No camera devices found in specified environment for specified time span')
     logger.info('Found {} camera assignments for specified environment and time span'.format(len(camera_assignment_ids)))
+    return camera_assignment_ids
+
+# Used by:
+# video_io.core (wf-video-io)
+def fetch_camera_assignment_ids_from_camera_properties(
+    start=None,
+    end=None,
+    camera_device_ids=None,
+    camera_part_numbers=None,
+    camera_names=None,
+    camera_serial_numbers=None,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if camera_device_ids is None and camera_names is None and camera_part_numbers is None and camera_serial_numbers is None:
+        return None
+    query_list=list()
+    if camera_device_ids is not None:
+        query_list.append({
+            'field': 'device_id',
+            'operator': 'IN',
+            'values': camera_device_ids
+        })
+    if camera_part_numbers is not None:
+        query_list.append({
+            'field': 'part_number',
+            'operator': 'IN',
+            'values': camera_part_numbers
+        })
+    if camera_names is not None:
+        query_list.append({
+            'field': 'name',
+            'operator': 'IN',
+            'values': camera_names
+        })
+    if camera_serial_numbers is not None:
+        query_list.append({
+            'field': 'serial_number',
+            'operator': 'IN',
+            'values': camera_serial_numbers
+        })
+    logger.info('Fetching camera assignments for cameras with specified properties')
+    if client is None:
+        client = minimal_honeycomb.MinimalHoneycombClient(
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    result = client.bulk_query(
+        request_name='searchDevices',
+        arguments={
+            'query': {
+                'type': 'QueryExpression!',
+                'value': {
+                    'operator': 'AND',
+                    'children': query_list
+                }
+            }
+        },
+        return_data=[
+            'device_id',
+            {'assignments': [
+                'assignment_id',
+                'start',
+                'end'
+            ]}
+        ],
+        id_field_name='device_id',
+        chunk_size=chunk_size
+    )
+    assignments = list()
+    for datum in result:
+        if datum.get('assignments') is not None and len(datum.get('assignments')) > 0:
+            assignments.extend(datum.get('assignments'))
+    filtered_assignments = minimal_honeycomb.filter_assignments(
+        assignments=assignments,
+        start_time=start,
+        end_time=end
+    )
+    if len(filtered_assignments) == 0:
+        raise ValueError('No camera assignments match specified camera device IDs/names/part numbers/serial numbers and time span')
+    camera_assignment_ids = [assignment.get('assignment_id') for assignment in filtered_assignments]
     return camera_assignment_ids
 
 # Used by:
