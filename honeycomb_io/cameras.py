@@ -14,6 +14,114 @@ DEFAULT_CAMERA_DEVICE_TYPES = [
 ]
 
 # Used by:
+# camera_calibration.colmap (wf-camera-calibration)
+def write_intrinsic_calibration_data(
+    data,
+    start_datetime,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    intrinsic_calibration_data_columns = [
+        'device_id',
+        'image_width',
+        'image_height',
+        'camera_matrix',
+        'distortion_coefficients'
+    ]
+    if not set(intrinsic_calibration_data_columns).issubset(set(data.columns)):
+        raise ValueError('Data must contain the following columns: {}'.format(
+            intrinsic_calibration_data_columns
+        ))
+    intrinsic_calibration_data_df = data.reset_index().reindex(columns=intrinsic_calibration_data_columns)
+    intrinsic_calibration_data_df.rename(columns={'device_id': 'device'}, inplace=True)
+    intrinsic_calibration_data_df['start'] = minimal_honeycomb.to_honeycomb_datetime(start_datetime)
+    intrinsic_calibration_data_df['camera_matrix'] = intrinsic_calibration_data_df['camera_matrix'].apply(lambda x: x.tolist())
+    intrinsic_calibration_data_df['distortion_coefficients'] = intrinsic_calibration_data_df['distortion_coefficients'].apply(lambda x: x.tolist())
+    records = intrinsic_calibration_data_df.to_dict(orient='records')
+    if client is None:
+        client = minimal_honeycomb.MinimalHoneycombClient(
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    result=client.bulk_mutation(
+        request_name='createIntrinsicCalibration',
+        arguments={
+            'intrinsicCalibration': {
+                'type': 'IntrinsicCalibrationInput',
+                'value': records
+            }
+        },
+        return_object=[
+            'intrinsic_calibration_id'
+        ]
+    )
+    ids = None
+    if len(result) > 0:
+        ids = [datum.get('intrinsic_calibration_id') for datum in result]
+    return ids
+
+# Used by:
+# camera_calibration.colmap (wf-camera-calibration)
+def write_extrinsic_calibration_data(
+    data,
+    start_datetime,
+    coordinate_space_id,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    extrinsic_calibration_data_columns = [
+        'device_id',
+        'rotation_vector',
+        'translation_vector'
+    ]
+    if not set(extrinsic_calibration_data_columns).issubset(set(data.columns)):
+        raise ValueError('Data must contain the following columns: {}'.format(
+            extrinsic_calibration_data_columns
+        ))
+    extrinsic_calibration_data_df = data.reset_index().reindex(columns=extrinsic_calibration_data_columns)
+    extrinsic_calibration_data_df.rename(columns={'device_id': 'device'}, inplace=True)
+    extrinsic_calibration_data_df['start'] = minimal_honeycomb.to_honeycomb_datetime(start_datetime)
+    extrinsic_calibration_data_df['coordinate_space'] = coordinate_space_id
+    extrinsic_calibration_data_df['rotation_vector'] = extrinsic_calibration_data_df['rotation_vector'].apply(lambda x: x.tolist())
+    extrinsic_calibration_data_df['translation_vector'] = extrinsic_calibration_data_df['translation_vector'].apply(lambda x: x.tolist())
+    records = extrinsic_calibration_data_df.to_dict(orient='records')
+    if client is None:
+        client = minimal_honeycomb.MinimalHoneycombClient(
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    result=client.bulk_mutation(
+        request_name='createExtrinsicCalibration',
+        arguments={
+            'extrinsicCalibration': {
+                'type': 'ExtrinsicCalibrationInput',
+                'value': records
+            }
+        },
+        return_object=[
+            'extrinsic_calibration_id'
+        ]
+    )
+    ids = None
+    if len(result) > 0:
+        ids = [datum.get('extrinsic_calibration_id') for datum in result]
+    return ids
+
+# Used by:
 # honeycomb_io.poses
 def fetch_camera_ids_from_environment(
     start=None,
@@ -381,6 +489,8 @@ def fetch_camera_names(
 # process_pose_data.overlay (wf-process-pose_data)
 # process_pose_data.process (wf-process-pose_data)
 # process_pose_data.reconstruct (wf-process-pose-data)
+# camera_calibration.colmap (wf-camera-calibration)
+# camera_calibration.visualize (wf-camera-calibration)
 def fetch_camera_calibrations(
     camera_ids,
     start=None,
