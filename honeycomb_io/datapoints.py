@@ -4,6 +4,50 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Used by:
+# inference_helpers.jobs.prepare (wf-inference-helpers)
+def get_datapoint_keys_for_assignment_in_range(assignment_id, start, end, honeycomb_client=None):
+    if honeycomb_client is not None:
+        raise ValueError('Option of specifying a Honeycomb client has been removed')
+    if honeycomb_client is None:
+        honeycomb_client = honeycomb_io.core.get_legacy_client()
+    query_pages = """
+        query searchDatapoints($cursor: String, $assignment_id: String, $start: String, $end: String) {
+          searchDatapoints(
+            query: { operator: AND, children: [
+                { operator: EQ, field: "source", value: $assignment_id },
+                { operator: GTE, field: "timestamp", value: $start },
+                { operator: LT, field: "timestamp", value: $end },
+            ] }
+            page: { cursor: $cursor, max: 1000, sort: {field: "timestamp", direction: DESC} }
+          ) {
+            page_info {
+              count
+              cursor
+            }
+            data {
+              data_id
+              timestamp
+              file {
+                key
+                bucketName
+              }
+            }
+          }
+        }
+        """
+    cursor = ""
+    while True:
+        vari = {"assignment_id": assignment_id, "start": start, "end": end, "cursor": cursor}
+        page = honeycomb_client.raw_query(query_pages, vari)
+        page_info = page.get("searchDatapoints").get("page_info")
+        data = page.get("searchDatapoints").get("data")
+        cursor = page_info.get("cursor")
+        if page_info.get("count") == 0:
+            break
+        for item in data:
+            yield item
+
+# Used by:
 # video_io.core (wf-video-io)
 def search_datapoints(
     query_list,

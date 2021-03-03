@@ -6,6 +6,16 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Used by:
+# inference_helpers.__main__ (wf-inference-helpers)
+def get_environment_id(environment_name, honeycomb_client=None):
+    if honeycomb_client is not None:
+        raise ValueError('Option of specifying a Honeycomb client has been removed')
+    if honeycomb_client is None:
+        honeycomb_client = honeycomb_io.core.get_legacy_client()
+    environments = honeycomb_client.query.findEnvironment(name=environment_name)
+    return environments.data[0].get('environment_id')
+
+# Used by:
 # honeycomb_io.cameras
 # video_io.core (wf-video-io)
 # camera_calibration.colmap (wf-video-io)
@@ -84,6 +94,39 @@ def fetch_environment_by_name(environment_name):
     if len(df) > 0:
         return df.loc[0]
     return None
+
+# Used by:
+# inference_helpers.__main__ (wf-inference-helpers)
+def get_assignments(environment_id, honeycomb_client=None):
+    if honeycomb_client is not None:
+        raise ValueError('Option of specifying a Honeycomb client has been removed')
+    if honeycomb_client is None:
+        honeycomb_client = honeycomb_io.core.get_legacy_client()
+    result = honeycomb_client.query.query(
+        """
+        query getEnvironment ($environment_id: ID!) {
+          getEnvironment(environment_id: $environment_id) {
+            environment_id
+            name
+            assignments(current: true) {
+              assignment_id
+              assigned_type
+              assigned {
+                ... on Device {
+                    device_id
+                    device_type
+                }
+              }
+            }
+          }
+        }
+        """,
+        {"environment_id": environment_id})
+    if hasattr(result, "get"):
+        assignments = result.get("getEnvironment").get("assignments")
+        return [(assignment["assignment_id"], assignment["assigned"]["device_id"]) for assignment in assignments if assignment["assigned_type"] == "DEVICE" and assignment["assigned"]["device_type"].find("CAMERA") > 0]
+    logger.debug(result)
+    return []
 
 # Used by:
 # honeycomb_io.uwb_data

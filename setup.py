@@ -13,6 +13,7 @@ def get_version():
 # Dependencies (format is 'PYPI_PACKAGE_NAME[>]=VERSION_NUMBER')
 BASE_DEPENDENCIES = [
     'wf-minimal-honeycomb-python>=0.6.0',
+    'wildflower-honeycomb-sdk>=0.9.0',
     'pandas>=1.2.2',
     'numpy>=1.20.1'
 ]
