@@ -6,16 +6,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Used by:
-# inference_helpers.__main__ (wf-inference-helpers)
-def get_environment_id(environment_name, honeycomb_client=None):
-    if honeycomb_client is not None:
-        raise ValueError('Option of specifying a Honeycomb client has been removed')
-    if honeycomb_client is None:
-        honeycomb_client = honeycomb_io.core.get_legacy_client()
-    environments = honeycomb_client.query.findEnvironment(name=environment_name)
-    return environments.data[0].get('environment_id')
-
-# Used by:
 # honeycomb_io.cameras
 # video_io.core (wf-video-io)
 # camera_calibration.colmap (wf-video-io)

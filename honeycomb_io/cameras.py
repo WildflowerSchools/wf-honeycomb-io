@@ -688,6 +688,63 @@ def fetch_extrinsic_calibrations(
     return extrinsic_calibrations
 
 # Used by:
+# inference_helpers.__main__ (wf-inference-helpers)
+def fetch_camera_id_tuples(
+    environment_id,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    client = honeycomb_io.core.generate_client(
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    result = client.request(
+        request_type='query',
+        request_name='getEnvironment',
+        arguments={
+            'environment_id': {
+                'type': 'ID!',
+                'value': environment_id
+            }
+        },
+        return_object = [
+            {'assignments (current: true)': [
+                'assignment_id',
+                'assigned_type',
+                {'assigned': [
+                    {'... on Device': [
+                        'device_id',
+                        'device_type'
+                    ]}
+                ]}
+            ]}
+        ]
+    )
+    if not hasattr(result, "get"):
+        logger.debug(result)
+        return []
+    tuple_list = list()
+    for assignment in result.get('assignments'):
+        if (
+            assignment.get('assigned_type') == 'DEVICE' and
+            assignment.get('assigned', {}).get('device_type') in DEFAULT_CAMERA_DEVICE_TYPES
+        ):
+            tuple_list.append((
+                assignment.get('assignment_id'),
+                assignment.get('assigned', {}).get('device_id')
+            ))
+    return tuple_list
+
+# Used by:
 # process_pose_data.local_io (wf-process-pose_data)
 # process_pose_data.process (wf-process-pose-data)
 def fetch_camera_device_id_lookup(

@@ -1,5 +1,6 @@
 import minimal_honeycomb
 import honeycomb # Legacy client
+import os
 
 
 HONEYCOMB_URI = os.getenv("HONEYCOMB_URI", "https://honeycomb.api.wildflower-tech.org/graphql")
