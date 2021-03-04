@@ -137,7 +137,7 @@ def fetch_device_assignments(
         'value': 'DEVICE'
     })
     assignments = honeycomb_io.core.search_objects(
-        request_name='searchAssignments',
+        object_name='Assignment',
         query_list=query_list,
         return_data = [
             'assignment_id',
@@ -157,7 +157,6 @@ def fetch_device_assignments(
             ]}
 
         ],
-        id_field_name='assignment_id',
         chunk_size=chunk_size,
         client=client,
         uri=uri,

@@ -528,12 +528,10 @@ def fetch_uwb_data_ids(
     return_data = [
         'data_id'
     ]
-    id_field_name='data_id'
     result = honeycomb_io.core.search_objects(
-        request_name='searchDatapoints',
+        object_name='Datapoint',
         query_list=query_list,
         return_data=return_data,
-        id_field_name=id_field_name,
         chunk_size=chunk_size,
         client=client,
         uri=uri,
@@ -594,12 +592,10 @@ def fetch_person_tag_info(
             ]}
         ]}
     ]
-    id_field_name='assignment_id'
     result = honeycomb_io.core.search_objects(
-        request_name='searchAssignments',
+        object_name='Assignment',
         query_list=query_list,
         return_data=return_data,
-        id_field_name=id_field_name,
         chunk_size=chunk_size,
         client=client,
         uri=uri,

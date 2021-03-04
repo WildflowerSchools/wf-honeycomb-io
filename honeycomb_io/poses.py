@@ -226,10 +226,9 @@ def search_2d_poses(
 ):
     logger.info('Searching for 2D poses that match the specified parameters')
     result = honeycomb_io.core.search_objects(
-        request_name='searchPoses2D',
+        object_name='Pose2D',
         query_list=query_list,
         return_data=return_data,
-        id_field_name='pose_id',
         chunk_size=chunk_size,
         client=None,
         uri=None,
@@ -413,10 +412,9 @@ def search_3d_poses(
 ):
     logger.info('Searching for 3D poses that match the specified parameters')
     result = honeycomb_io.core.search_objects(
-        request_name='searchPoses3D',
+        object_name='Pose3D',
         query_list=query_list,
         return_data=return_data,
-        id_field_name='pose_id',
         chunk_size=chunk_size,
         client=None,
         uri=None,
@@ -520,10 +518,9 @@ def search_pose_tracks_3d(
 ):
     logger.info('Searching for 3D pose tracks that match the specified parameters')
     result = honeycomb_io.core.search_objects(
-        request_name='searchPoseTracks3D',
+        object_name='poseTrack3D',
         query_list=query_list,
         return_data=return_data,
-        id_field_name='pose_track_id',
         chunk_size=chunk_size,
         client=None,
         uri=None,

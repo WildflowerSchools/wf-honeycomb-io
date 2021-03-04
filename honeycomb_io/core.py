@@ -71,10 +71,11 @@ def create_objects(
     return ids
 
 def search_objects(
-    request_name,
-    query_list,
-    return_data,
-    id_field_name,
+    object_name=None,
+    query_list=None,
+    return_data=None,
+    request_name=None,
+    id_field_name=None,
     chunk_size=100,
     client=None,
     uri=None,
@@ -83,6 +84,22 @@ def search_objects(
     client_id=None,
     client_secret=None
 ):
+    if query_list is None:
+        logger.warn('No query specified')
+        data = list()
+        return data
+    if query_list is None:
+        logger.warn('No return data specified')
+        data = list()
+        return data
+    if request_name is None:
+        if object_name is None:
+            raise ValueError('Must specify either request name or object name')
+        request_name = honeycomb_io.schema.search_endpoint_name(object_name=object_name)
+    if id_field_name is None:
+        if object_name is None:
+            raise ValueError('Must specify either ID field name or object name')
+        id_field_name = honeycomb_io.schema.id_field_name(object_name=object_name)
     client = generate_client(
         client=client,
         uri=uri,
@@ -106,6 +123,10 @@ def search_objects(
         id_field_name=id_field_name,
         chunk_size=chunk_size
     )
+    if not isinstance(result, list):
+        raise ValueError('Received unexpected result from Honyecomb: {}'.format(
+            result
+        ))
     return result
 
 def delete_objects(
