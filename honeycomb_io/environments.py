@@ -1,4 +1,5 @@
 import honeycomb_io.core
+import honeycomb_io.utils
 import minimal_honeycomb
 import pandas as pd
 import logging
@@ -122,13 +123,13 @@ def fetch_device_assignments(
     query_list.append({
         'field': 'start',
         'operator': 'LTE',
-        'value': minimal_honeycomb.to_honeycomb_datetime(start)
+        'value': honeycomb_io.utils.to_honeycomb_datetime(start)
     })
     query_list.append({
         'operator': 'OR',
         'children': [
             {'field': 'end', 'operator': 'ISNULL'},
-            {'field': 'end', 'operator': 'GTE', 'value': minimal_honeycomb.to_honeycomb_datetime(end)}
+            {'field': 'end', 'operator': 'GTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(end)}
         ]
     })
     query_list.append({

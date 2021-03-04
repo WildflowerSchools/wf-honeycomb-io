@@ -1,4 +1,5 @@
 import honeycomb_io.core
+import honeycomb_io.utils
 import minimal_honeycomb
 import pandas as pd
 import numpy as np
@@ -94,9 +95,9 @@ def create_inference_execution(
     client_secret=None
 ):
     if execution_start is None:
-        execution_start = minimal_honeycomb.to_honeycomb_datetime(datetime.datetime.now(tz=datetime.timezone.utc))
+        execution_start = honeycomb_io.utils.to_honeycomb_datetime(datetime.datetime.now(tz=datetime.timezone.utc))
     else:
-        execution_start = minimal_honeycomb.to_honeycomb_datetime(execution_start)
+        execution_start = honeycomb_io.utils.to_honeycomb_datetime(execution_start)
     client = honeycomb_io.core.generate_client(
         client=client,
         uri=uri,

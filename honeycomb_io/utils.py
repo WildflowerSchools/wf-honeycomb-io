@@ -40,10 +40,10 @@ def from_honeycomb_datetime(honeycomb_datetime):
 
 # Used by:
 # video_io.core (wf-video-io)
-def to_honeycomb_datetime(python_datetime):
-    if python_datetime is None:
+def to_honeycomb_datetime(input_datetime):
+    if input_datetime is None:
         return None
-    return python_datetime.astimezone(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+    return pd.to_datetime(input_datetime, utc=True).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 
 # Used by:
 # camera_calibration.colmap (wf-camera-calibration)

@@ -1,4 +1,5 @@
 import honeycomb_io.core
+import honeycomb_io.utils
 import minimal_honeycomb
 import pandas as pd
 import logging
@@ -188,7 +189,7 @@ def fetch_device_position(
                         {
                             'field': 'start',
                             'operator': 'LTE',
-                            'value': minimal_honeycomb.to_honeycomb_datetime(datetime)
+                            'value': honeycomb_io.utils.to_honeycomb_datetime(datetime)
                         },
                         {
                             'operator': 'OR',
@@ -196,7 +197,7 @@ def fetch_device_position(
                                 {
                                     'field': 'end',
                                     'operator': 'GTE',
-                                    'value': minimal_honeycomb.to_honeycomb_datetime(datetime)
+                                    'value': honeycomb_io.utils.to_honeycomb_datetime(datetime)
                                 },
                                 {
                                     'field': 'end',
@@ -246,7 +247,7 @@ def write_position_data(
     position_data_df = data.reset_index().reindex(columns=position_data_columns)
     position_data_df.rename(columns={'device_id': 'assigned'}, inplace=True)
     position_data_df.rename(columns={'position': 'coordinates'}, inplace=True)
-    position_data_df['start'] = minimal_honeycomb.to_honeycomb_datetime(start_datetime)
+    position_data_df['start'] = honeycomb_io.utils.to_honeycomb_datetime(start_datetime)
     position_data_df['assigned_type'] = assigned_type
     position_data_df['coordinate_space'] = coordinate_space_id
     position_data_df['coordinates'] = position_data_df['coordinates'].apply(lambda x: x.tolist())

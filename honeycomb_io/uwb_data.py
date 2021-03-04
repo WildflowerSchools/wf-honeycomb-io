@@ -301,8 +301,8 @@ def add_assignment_ids(
 # process_cuwb_data.core (wf-process-cuwb-data)
 def fetch_material_tray_devices_assignments(environment_id, start_time, end_time):
 
-    hc_start_time = minimal_honeycomb.to_honeycomb_datetime(start_time)
-    hc_end_time = minimal_honeycomb.to_honeycomb_datetime(end_time)
+    hc_start_time = honeycomb_io.utils.to_honeycomb_datetime(start_time)
+    hc_end_time = honeycomb_io.utils.to_honeycomb_datetime(end_time)
 
     logger.info('Fetching CUWB tag device data')
     client = minimal_honeycomb.MinimalHoneycombClient()

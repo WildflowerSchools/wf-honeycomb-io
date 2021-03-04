@@ -1,4 +1,5 @@
 import honeycomb_io.core
+import honeycomb_io.utils
 import honeycomb_io.cameras
 import minimal_honeycomb
 import pandas as pd
@@ -101,13 +102,13 @@ def fetch_2d_pose_data(
         query_list.append({
             'field': 'timestamp',
             'operator': 'GTE',
-            'value': minimal_honeycomb.to_honeycomb_datetime(start)
+            'value': honeycomb_io.utils.to_honeycomb_datetime(start)
         })
     if end is not None:
         query_list.append({
             'field': 'timestamp',
             'operator': 'LTE',
-            'value': minimal_honeycomb.to_honeycomb_datetime(end)
+            'value': honeycomb_io.utils.to_honeycomb_datetime(end)
         })
     if camera_ids_from_environment is not None:
         query_list.append({
@@ -296,13 +297,13 @@ def fetch_3d_pose_data(
         query_list.append({
             'field': 'timestamp',
             'operator': 'GTE',
-            'value': minimal_honeycomb.to_honeycomb_datetime(start)
+            'value': honeycomb_io.utils.to_honeycomb_datetime(start)
         })
     if end is not None:
         query_list.append({
             'field': 'timestamp',
             'operator': 'LTE',
-            'value': minimal_honeycomb.to_honeycomb_datetime(end)
+            'value': honeycomb_io.utils.to_honeycomb_datetime(end)
         })
     if pose_model_id is not None:
         query_list.append({
@@ -740,7 +741,7 @@ def write_3d_pose_data(
     else:
         poses_3d_df_honeycomb['source_type'] = source_type
     poses_3d_df_honeycomb['timestamp'] = poses_3d_df_honeycomb['timestamp'].apply(
-        lambda x: minimal_honeycomb.to_honeycomb_datetime(x.to_pydatetime())
+        lambda x: honeycomb_io.utils.to_honeycomb_datetime(x.to_pydatetime())
     )
     poses_3d_df_honeycomb['keypoint_coordinates_3d'] = poses_3d_df_honeycomb['keypoint_coordinates_3d'].apply(
         lambda x: np.where(np.isnan(x), None, x)
