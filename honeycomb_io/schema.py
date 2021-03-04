@@ -40,6 +40,24 @@ def create_endpoint_argument_type(object_name):
         name = object_name + 'Input'
     return name
 
+def update_endpoint_name(object_name):
+    name = SCHEMA.get(object_name, {}).get('update_endpoint_name')
+    if name is None:
+        name = 'update' + object_name
+    return name
+
+def update_endpoint_argument_name(object_name):
+    name = SCHEMA.get(object_name, {}).get('update_endpoint_argument_name')
+    if name is None:
+        name = inflection.camelize(object_name, uppercase_first_letter=False)
+    return name
+
+def update_endpoint_argument_type(object_name):
+    name = SCHEMA.get(object_name, {}).get('update_endpoint_argument_type')
+    if name is None:
+        name = object_name + 'UpdateInput'
+    return name
+
 def search_endpoint_name(object_name):
     name = SCHEMA.get(object_name, {}).get('search_endpoint_name')
     if name is None:
