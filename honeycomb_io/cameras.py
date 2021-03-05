@@ -1,4 +1,5 @@
 import honeycomb_io.core
+import honeycomb_io.utils
 import honeycomb_io.environments
 import minimal_honeycomb
 import pandas as pd
@@ -38,7 +39,7 @@ def write_intrinsic_calibration_data(
         ))
     intrinsic_calibration_data_df = data.reset_index().reindex(columns=intrinsic_calibration_data_columns)
     intrinsic_calibration_data_df.rename(columns={'device_id': 'device'}, inplace=True)
-    intrinsic_calibration_data_df['start'] = minimal_honeycomb.to_honeycomb_datetime(start_datetime)
+    intrinsic_calibration_data_df['start'] = honeycomb_io.utils.to_honeycomb_datetime(start_datetime)
     intrinsic_calibration_data_df['camera_matrix'] = intrinsic_calibration_data_df['camera_matrix'].apply(lambda x: x.tolist())
     intrinsic_calibration_data_df['distortion_coefficients'] = intrinsic_calibration_data_df['distortion_coefficients'].apply(lambda x: x.tolist())
     records = intrinsic_calibration_data_df.to_dict(orient='records')
@@ -91,7 +92,7 @@ def write_extrinsic_calibration_data(
         ))
     extrinsic_calibration_data_df = data.reset_index().reindex(columns=extrinsic_calibration_data_columns)
     extrinsic_calibration_data_df.rename(columns={'device_id': 'device'}, inplace=True)
-    extrinsic_calibration_data_df['start'] = minimal_honeycomb.to_honeycomb_datetime(start_datetime)
+    extrinsic_calibration_data_df['start'] = honeycomb_io.utils.to_honeycomb_datetime(start_datetime)
     extrinsic_calibration_data_df['coordinate_space'] = coordinate_space_id
     extrinsic_calibration_data_df['rotation_vector'] = extrinsic_calibration_data_df['rotation_vector'].apply(lambda x: x.tolist())
     extrinsic_calibration_data_df['translation_vector'] = extrinsic_calibration_data_df['translation_vector'].apply(lambda x: x.tolist())
