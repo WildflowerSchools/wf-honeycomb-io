@@ -24,6 +24,45 @@ CUWB_DATA_MAX_INT = {
     4: 2147483647
 }
 
+def write_raw_accelerometer_data(
+    raw_accelerometer_data,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    serial_numbers = extract_serial_numbers(
+        raw_data=raw_accelerometer_data
+    )
+    device_id_lookup = honeycomb_io.fetch_uwb_tag_device_id_lookup(
+        serial_numbers=serial_numbers,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    accelerometer_data = parse_raw_accelerometer_data(
+        raw_accelerometer_data=raw_accelerometer_data,
+        device_id_lookup=device_id_lookup
+    )
+    accelerometer_data_ids = write_accelerometer_data(
+        accelerometer_data=accelerometer_data,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    return accelerometer_data_ids
+
 def write_accelerometer_data(
     accelerometer_data,
     chunk_size=100,
