@@ -14,6 +14,84 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# CUWB Data Protocol: Byte size for accelerometer values
+ACCELEROMETER_BYTE_SIZE = 4
+
+# CUWB Data Protocol: Maximum integer for each byte size
+CUWB_DATA_MAX_INT = {
+    1: 127,
+    2: 32767,
+    4: 2147483647
+}
+
+def parse_raw_accelerometer_data(
+    raw_accelerometer_data,
+    device_id_lookup
+):
+    accelerometer_data = list()
+    for datum in raw_accelerometer_data:
+        if datum['serial_number'] in device_id_lookup.keys():
+            accelerometer_data.append({
+                'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
+                'device': device_id_lookup[datum['serial_number']],
+                'data': [
+                    datum['x']*datum['scale']/CUWB_DATA_MAX_INT[ACCELEROMETER_BYTE_SIZE],
+                    datum['y']*datum['scale']/CUWB_DATA_MAX_INT[ACCELEROMETER_BYTE_SIZE],
+                    datum['z']*datum['scale']/CUWB_DATA_MAX_INT[ACCELEROMETER_BYTE_SIZE]
+                ]
+            })
+    return accelerometer_data
+
+def extract_serial_numbers(
+    raw_data
+):
+    serial_numbers = set()
+    for datum in raw_data:
+        serial_number = datum.get('serial_number')
+        if serial_number is None:
+            raise ValueError('CUWB observation does not contain serial number: {}'.format(
+                datum
+            ))
+        else:
+            serial_numbers.add(serial_number)
+    serial_numbers = list(serial_numbers)
+    return serial_numbers
+
+def fetch_uwb_tag_device_id_lookup(
+    serial_numbers,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    query_list = [
+        {'field': 'device_type', 'operator': 'EQ', 'value': 'UWBTAG'},
+        {'field': 'serial_number', 'operator': 'IN', 'values': serial_numbers}
+    ]
+    return_data = [
+        'device_id',
+        'serial_number'
+    ]
+    result = honeycomb_io.core.search_objects(
+        object_name='Device',
+        query_list=query_list,
+        return_data=return_data,
+        request_name=None,
+        id_field_name=None,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    device_id_lookup = {datum['serial_number']: datum['device_id'] for datum in result}
+    return device_id_lookup
+
 # Used by:
 # process_cuwb_data.core (wf-process-cuwb-data)
 # process_cuwb_data.geom_render (wf-process-cuwb-data)
