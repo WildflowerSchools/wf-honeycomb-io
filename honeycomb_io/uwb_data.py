@@ -14,7 +14,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# CUWB Data Protocol: Byte size for accelerometer values
+# CUWB Data Protocol: Byte size for CUWB data values
 ACCELEROMETER_BYTE_SIZE = 4
 
 # CUWB Data Protocol: Maximum integer for each byte size
@@ -24,8 +24,11 @@ CUWB_DATA_MAX_INT = {
     4: 2147483647
 }
 
-def write_raw_accelerometer_data(
-    raw_accelerometer_data,
+SUPPORTED_CUWB_DATA_TYPES = ['position', 'accelerometer', 'gyroscope', 'magnetometer']
+
+def write_raw_cuwb_data(
+    raw_data,
+    data_type,
     device_types=['UWBTAG'],
     chunk_size=1000,
     client=None,
@@ -35,19 +38,28 @@ def write_raw_accelerometer_data(
     client_id=None,
     client_secret=None
 ):
-    num_raw_observations = len(raw_accelerometer_data)
+    if data_type not in SUPPORTED_CUWB_DATA_TYPES:
+     raise ValueError('Data type must be one of {}'.format(
+        SUPPORTED_CUWB_DATA_TYPES
+     ))
+    num_raw_observations = len(raw_data)
     if num_raw_observations == 0:
-        logger.warn('List of raw CUWB accelerometer observations is empty')
+        logger.warn('List of raw CUWB {} observations is empty'.format(
+            data_type
+        ))
         return []
-    logger.info('Processing {} raw CUWB accelerometer observations'.format(
-        num_raw_observations
+    logger.info('Processing {} raw CUWB {} observations'.format(
+        num_raw_observations,
+        data_type
     ))
     serial_numbers = extract_serial_numbers(
-        raw_data=raw_accelerometer_data
+        raw_data=raw_data
     )
     num_serial_numbers = len(serial_numbers)
     if num_serial_numbers == 0:
-        logger.warn('Raw CUWB accelerometer observations appear to contain no serial numbers')
+        logger.warn('Raw CUWB {} observations appear to contain no serial numbers'.format(
+            device_type
+        ))
         return []
     device_id_lookup = honeycomb_io.fetch_uwb_device_id_lookup(
         serial_numbers=serial_numbers,
@@ -67,16 +79,21 @@ def write_raw_accelerometer_data(
             device_types
         ))
         return []
-    accelerometer_data = parse_raw_accelerometer_data(
-        raw_accelerometer_data=raw_accelerometer_data,
+    parsed_data = parse_raw_cuwb_data(
+        raw_data=raw_data,
+        data_type=data_type,
         device_id_lookup=device_id_lookup
     )
-    num_parsed_observations = len(accelerometer_data)
+    num_parsed_observations = len(parsed_data)
     if num_parsed_observations == 0:
-        logger.warn('Raw CUWB accelerometer observations appear to contain no data for UWB tags')
+        logger.warn('Raw CUWB {} observations appear to contain no data for target device types ({})'.format(
+            device_type,
+            device_types
+        ))
         return []
-    accelerometer_data_ids = write_accelerometer_data(
-        accelerometer_data=accelerometer_data,
+    data_ids = write_cuwb_data(
+        parsed_data=parsed_data,
+        data_type=data_type,
         chunk_size=chunk_size,
         client=client,
         uri=uri,
@@ -85,14 +102,43 @@ def write_raw_accelerometer_data(
         client_id=client_id,
         client_secret=client_secret
     )
-    num_uploaded_observations = len(accelerometer_data_ids)
-    if num_parsed_observations == 0:
+    num_uploaded_observations = len(data_ids)
+    if num_uploaded_observations == 0:
         logger.warn('Honeycomb reports that no data was written')
-    logger.info('Uploaded {} observations from the {} supplied raw CUWB accelerometer observations'.format(
+    logger.info('Uploaded {} observations from the {} supplied raw CUWB {} observations'.format(
         num_uploaded_observations,
-        num_raw_observations
+        num_raw_observations,
+        data_type
     ))
-    return accelerometer_data_ids
+    return data_ids
+
+def write_cuwb_data(
+    parsed_data,
+    data_type,
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if data_type == 'accelerometer':
+        data_ids = write_accelerometer_data(
+            accelerometer_data=parsed_data,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        return data_ids
+    else:
+        raise ValueError('Device type {} not currently supported'.format(
+            device_type
+        ))
 
 def write_accelerometer_data(
     accelerometer_data,
@@ -130,6 +176,22 @@ def write_accelerometer_data(
         len(accelerometer_data_ids)
     ))
     return accelerometer_data_ids
+
+def parse_raw_cuwb_data(
+    raw_data,
+    data_type,
+    device_id_lookup
+):
+    if data_type=='accelerometer':
+        parsed_data = parse_raw_accelerometer_data(
+            raw_accelerometer_data=raw_data,
+            device_id_lookup=device_id_lookup
+        )
+        return parsed_data
+    else:
+        raise ValueError('Data type {} not currently supported'.format(
+            data_type
+        ))
 
 def parse_raw_accelerometer_data(
     raw_accelerometer_data,
