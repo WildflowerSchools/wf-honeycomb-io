@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 # CUWB Data Protocol: Byte size for CUWB data values
 ACCELEROMETER_BYTE_SIZE = 4
+GYROSCOPE_BYTE_SIZE = 4
 
 # CUWB Data Protocol: Maximum integer for each byte size
 CUWB_DATA_MAX_INT = {
@@ -135,6 +136,18 @@ def write_cuwb_data(
             client_secret=client_secret
         )
         return data_ids
+    elif data_type == 'gyroscope':
+        data_ids = write_gyroscope_data(
+            gyroscope_data=parsed_data,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        return data_ids
     else:
         raise ValueError('Device type {} not currently supported'.format(
             device_type
@@ -177,6 +190,43 @@ def write_accelerometer_data(
     ))
     return accelerometer_data_ids
 
+def write_gyroscope_data(
+    gyroscope_data,
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    num_parsed_observations = len(gyroscope_data)
+    logger.info('Writing {} CUWB gyroscope observations to Honeycomb'.format(
+        num_parsed_observations
+    ))
+    if num_parsed_observations == 0:
+        logger.warn('List of CUWB gyroscope observations is empty')
+        return []
+    gyroscope_data_ids = honeycomb_io.core.create_objects(
+        object_name='GyroscopeData',
+        data=gyroscope_data,
+        request_name=None,
+        argument_name=None,
+        argument_type=None,
+        id_field_name=None,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Successfully wrote {} CUWB gyroscope observations to Honeycomb'.format(
+        len(gyroscope_data_ids)
+    ))
+    return gyroscope_data_ids
+
 def parse_raw_cuwb_data(
     raw_data,
     data_type,
@@ -185,6 +235,12 @@ def parse_raw_cuwb_data(
     if data_type=='accelerometer':
         parsed_data = parse_raw_accelerometer_data(
             raw_accelerometer_data=raw_data,
+            device_id_lookup=device_id_lookup
+        )
+        return parsed_data
+    elif data_type=='gyroscope':
+        parsed_data = parse_raw_gyroscope_data(
+            raw_gyroscope_data=raw_data,
             device_id_lookup=device_id_lookup
         )
         return parsed_data
@@ -225,6 +281,39 @@ def parse_raw_accelerometer_data(
         list(device_id_lookup.keys())
     ))
     return accelerometer_data
+
+def parse_raw_gyroscope_data(
+    raw_gyroscope_data,
+    device_id_lookup
+):
+    num_raw_observations = len(raw_gyroscope_data)
+    num_tag_ids = len(device_id_lookup)
+    logger.info('Parsing {} raw CUWB gyroscope observations looking for {} serial numbers: {}'.format(
+        num_raw_observations,
+        num_tag_ids,
+        list(device_id_lookup.keys())
+    ))
+    if num_raw_observations == 0:
+        logger.warn('List of raw CUWB gyroscope observations is empty')
+        return []
+    gyroscope_data = list()
+    for datum in raw_gyroscope_data:
+        if datum['serial_number'] in device_id_lookup.keys():
+            gyroscope_data.append({
+                'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
+                'device': device_id_lookup[datum['serial_number']],
+                'data': [
+                    datum['x']*datum['scale']/CUWB_DATA_MAX_INT[GYROSCOPE_BYTE_SIZE],
+                    datum['y']*datum['scale']/CUWB_DATA_MAX_INT[GYROSCOPE_BYTE_SIZE],
+                    datum['z']*datum['scale']/CUWB_DATA_MAX_INT[GYROSCOPE_BYTE_SIZE]
+                ]
+            })
+    num_parsed_observations = len(gyroscope_data)
+    logger.info('Data yielded {} CUWB gyroscope observations for target serial numbers ({})'.format(
+        num_parsed_observations,
+        list(device_id_lookup.keys())
+    ))
+    return gyroscope_data
 
 def extract_serial_numbers(
     raw_data
