@@ -26,6 +26,7 @@ CUWB_DATA_MAX_INT = {
 
 def write_raw_accelerometer_data(
     raw_accelerometer_data,
+    device_types=['UWBTAG'],
     chunk_size=100,
     client=None,
     uri=None,
@@ -35,14 +36,22 @@ def write_raw_accelerometer_data(
     client_secret=None
 ):
     num_raw_observations = len(raw_accelerometer_data)
+    if num_raw_observations == 0:
+        logger.warn('List of raw CUWB accelerometer observations is empty')
+        return []
     logger.info('Processing {} raw CUWB accelerometer observations'.format(
         num_raw_observations
     ))
     serial_numbers = extract_serial_numbers(
         raw_data=raw_accelerometer_data
     )
-    device_id_lookup = honeycomb_io.fetch_uwb_tag_device_id_lookup(
+    num_serial_numbers = len(serial_numbers)
+    if num_serial_numbers == 0:
+        logger.warn('Raw CUWB accelerometer observations appear to contain no serial numbers')
+        return []
+    device_id_lookup = honeycomb_io.fetch_uwb_device_id_lookup(
         serial_numbers=serial_numbers,
+        device_types=device_types,
         chunk_size=chunk_size,
         client=client,
         uri=uri,
@@ -51,10 +60,21 @@ def write_raw_accelerometer_data(
         client_id=client_id,
         client_secret=client_secret
     )
+    num_uwb_devices = len(device_id_lookup)
+    if num_uwb_devices == 0:
+        logger.warn('Extracted serial numbers ({}) appear to contain no UWB devices corresponding to target device types ({})'.format(
+            serial_numbers,
+            device_types
+        ))
+        return []
     accelerometer_data = parse_raw_accelerometer_data(
         raw_accelerometer_data=raw_accelerometer_data,
         device_id_lookup=device_id_lookup
     )
+    num_parsed_observations = len(accelerometer_data)
+    if num_parsed_observations == 0:
+        logger.warn('Raw CUWB accelerometer observations appear to contain no data for UWB tags')
+        return []
     accelerometer_data_ids = write_accelerometer_data(
         accelerometer_data=accelerometer_data,
         chunk_size=chunk_size,
@@ -66,6 +86,8 @@ def write_raw_accelerometer_data(
         client_secret=client_secret
     )
     num_uploaded_observations = len(accelerometer_data_ids)
+    if num_parsed_observations == 0:
+        logger.warn('Honeycomb reports that no data was written')
     logger.info('Uploaded {} observations from the {} supplied raw CUWB accelerometer observations'.format(
         num_uploaded_observations,
         num_raw_observations
@@ -82,9 +104,13 @@ def write_accelerometer_data(
     client_id=None,
     client_secret=None
 ):
+    num_parsed_observations = len(accelerometer_data)
     logger.info('Writing {} CUWB accelerometer observations to Honeycomb'.format(
-        len(accelerometer_data)
+        num_parsed_observations
     ))
+    if num_parsed_observations == 0:
+        logger.warn('List of CUWB accelerometer observations is empty')
+        return []
     accelerometer_data_ids = honeycomb_io.core.create_objects(
         object_name='AccelerometerData',
         data=accelerometer_data,
@@ -111,11 +137,14 @@ def parse_raw_accelerometer_data(
 ):
     num_raw_observations = len(raw_accelerometer_data)
     num_tag_ids = len(device_id_lookup)
-    logger.info('Parsing {} raw CUWB accelerometer observations looking for {} tag serial_numbers: {}'.format(
+    logger.info('Parsing {} raw CUWB accelerometer observations looking for {} serial numbers: {}'.format(
         num_raw_observations,
         num_tag_ids,
         list(device_id_lookup.keys())
     ))
+    if num_raw_observations == 0:
+        logger.warn('List of raw CUWB accelerometer observations is empty')
+        return []
     accelerometer_data = list()
     for datum in raw_accelerometer_data:
         if datum['serial_number'] in device_id_lookup.keys():
@@ -129,7 +158,7 @@ def parse_raw_accelerometer_data(
                 ]
             })
     num_parsed_observations = len(accelerometer_data)
-    logger.info('Data yielded {} CUWB tag accelerometer observations for tag serial numbers {}'.format(
+    logger.info('Data yielded {} CUWB accelerometer observations for target serial numbers ({})'.format(
         num_parsed_observations,
         list(device_id_lookup.keys())
     ))
@@ -142,11 +171,14 @@ def extract_serial_numbers(
     logger.info('Extracting serial numbers from {} raw CUWB data observations'.format(
         num_raw_observations
     ))
+    if num_raw_observations == 0:
+        logger.warn('List of raw CUWB accelerometer observations is empty')
+        return []
     serial_numbers = set()
     for datum in raw_data:
         serial_number = datum.get('serial_number')
         if serial_number is None:
-            raise ValueError('CUWB observation does not contain serial number: {}'.format(
+            raise ValueError('CUWB observation {} does not contain a serial number'.format(
                 datum
             ))
         else:
@@ -158,8 +190,9 @@ def extract_serial_numbers(
     ))
     return serial_numbers
 
-def fetch_uwb_tag_device_id_lookup(
+def fetch_uwb_device_id_lookup(
     serial_numbers,
+    device_types=['UWBTAG'],
     chunk_size=100,
     client=None,
     uri=None,
@@ -168,13 +201,17 @@ def fetch_uwb_tag_device_id_lookup(
     client_id=None,
     client_secret=None
 ):
-    logger.info('Fetching CUWB tag device ID info for {} serial_numbers: {}'.format(
-        len(serial_numbers),
+    num_serial_numbers = len(serial_numbers)
+    if num_serial_numbers == 0:
+        logger.warn('List of serial numbers is empty')
+        return {}
+    logger.info('Fetching CUWB device ID info for target device types ({}) and specified serial_numbers ({})'.format(
+        device_types,
         serial_numbers
     ))
     query_list = [
-        {'field': 'device_type', 'operator': 'EQ', 'value': 'UWBTAG'},
-        {'field': 'serial_number', 'operator': 'IN', 'values': serial_numbers}
+        {'field': 'device_type', 'operator': 'CONTAINED_BY', 'values': device_types},
+        {'field': 'serial_number', 'operator': 'CONTAINED_BY', 'values': serial_numbers}
     ]
     return_data = [
         'device_id',
@@ -195,9 +232,10 @@ def fetch_uwb_tag_device_id_lookup(
         client_secret=client_secret
     )
     device_id_lookup = {datum['serial_number']: datum['device_id'] for datum in result}
-    logger.info('Found {} UWB tag serial numbers among specified serial numbers: {}'.format(
+    logger.info('Found {} UWB serial numbers ({}) corresponding to target types ({})'.format(
         len(device_id_lookup),
-        list(device_id_lookup.keys())
+        list(device_id_lookup.keys()),
+        device_types
     ))
     return device_id_lookup
 
