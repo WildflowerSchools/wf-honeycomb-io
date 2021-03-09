@@ -27,7 +27,7 @@ CUWB_DATA_MAX_INT = {
 def write_raw_accelerometer_data(
     raw_accelerometer_data,
     device_types=['UWBTAG'],
-    chunk_size=100,
+    chunk_size=1000,
     client=None,
     uri=None,
     token_uri=None,
@@ -96,7 +96,7 @@ def write_raw_accelerometer_data(
 
 def write_accelerometer_data(
     accelerometer_data,
-    chunk_size=100,
+    chunk_size=1000,
     client=None,
     uri=None,
     token_uri=None,
