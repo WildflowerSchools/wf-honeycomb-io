@@ -34,6 +34,10 @@ def write_raw_accelerometer_data(
     client_id=None,
     client_secret=None
 ):
+    num_raw_observations = len(raw_accelerometer_data)
+    logger.info('Processing {} raw CUWB accelerometer observations'.format(
+        num_raw_observations
+    ))
     serial_numbers = extract_serial_numbers(
         raw_data=raw_accelerometer_data
     )
@@ -61,6 +65,11 @@ def write_raw_accelerometer_data(
         client_id=client_id,
         client_secret=client_secret
     )
+    num_uploaded_observations = len(accelerometer_data_ids)
+    logger.info('Uploaded {} observations from the {} supplied raw CUWB accelerometer observations'.format(
+        num_uploaded_observations,
+        num_raw_observations
+    ))
     return accelerometer_data_ids
 
 def write_accelerometer_data(
@@ -73,6 +82,9 @@ def write_accelerometer_data(
     client_id=None,
     client_secret=None
 ):
+    logger.info('Writing {} CUWB accelerometer observations to Honeycomb'.format(
+        len(accelerometer_data)
+    ))
     accelerometer_data_ids = honeycomb_io.core.create_objects(
         object_name='AccelerometerData',
         data=accelerometer_data,
@@ -88,12 +100,22 @@ def write_accelerometer_data(
         client_id=client_id,
         client_secret=client_secret
     )
+    logger.info('Successfully wrote {} CUWB accelerometer observations to Honeycomb'.format(
+        len(accelerometer_data_ids)
+    ))
     return accelerometer_data_ids
 
 def parse_raw_accelerometer_data(
     raw_accelerometer_data,
     device_id_lookup
 ):
+    num_raw_observations = len(raw_accelerometer_data)
+    num_tag_ids = len(device_id_lookup)
+    logger.info('Parsing {} raw CUWB accelerometer observations looking for {} tag serial_numbers: {}'.format(
+        num_raw_observations,
+        num_tag_ids,
+        list(device_id_lookup.keys())
+    ))
     accelerometer_data = list()
     for datum in raw_accelerometer_data:
         if datum['serial_number'] in device_id_lookup.keys():
@@ -106,11 +128,20 @@ def parse_raw_accelerometer_data(
                     datum['z']*datum['scale']/CUWB_DATA_MAX_INT[ACCELEROMETER_BYTE_SIZE]
                 ]
             })
+    num_parsed_observations = len(accelerometer_data)
+    logger.info('Data yielded {} CUWB tag accelerometer observations for tag serial numbers {}'.format(
+        num_parsed_observations,
+        list(device_id_lookup.keys())
+    ))
     return accelerometer_data
 
 def extract_serial_numbers(
     raw_data
 ):
+    num_raw_observations = len(raw_data)
+    logger.info('Extracting serial numbers from {} raw CUWB data observations'.format(
+        num_raw_observations
+    ))
     serial_numbers = set()
     for datum in raw_data:
         serial_number = datum.get('serial_number')
@@ -121,6 +152,10 @@ def extract_serial_numbers(
         else:
             serial_numbers.add(serial_number)
     serial_numbers = list(serial_numbers)
+    logger.info('Extracted {} serial numbers: {}'.format(
+        len(serial_numbers),
+        serial_numbers
+    ))
     return serial_numbers
 
 def fetch_uwb_tag_device_id_lookup(
@@ -133,6 +168,10 @@ def fetch_uwb_tag_device_id_lookup(
     client_id=None,
     client_secret=None
 ):
+    logger.info('Fetching CUWB tag device ID info for {} serial_numbers: {}'.format(
+        len(serial_numbers),
+        serial_numbers
+    ))
     query_list = [
         {'field': 'device_type', 'operator': 'EQ', 'value': 'UWBTAG'},
         {'field': 'serial_number', 'operator': 'IN', 'values': serial_numbers}
@@ -156,6 +195,10 @@ def fetch_uwb_tag_device_id_lookup(
         client_secret=client_secret
     )
     device_id_lookup = {datum['serial_number']: datum['device_id'] for datum in result}
+    logger.info('Found {} UWB tag serial numbers among specified serial numbers: {}'.format(
+        len(device_id_lookup),
+        list(device_id_lookup.keys())
+    ))
     return device_id_lookup
 
 # Used by:
