@@ -27,6 +27,37 @@ CUWB_DATA_MAX_INT = {
 
 SUPPORTED_CUWB_DATA_TYPES = ['position', 'accelerometer', 'gyroscope', 'magnetometer']
 
+def write_raw_cuwb_data_lists(
+    raw_data_lists,
+    device_types=['UWBTAG'],
+    coordinate_space_id=None,
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    data_id_lists = dict()
+    for data_type in SUPPORTED_CUWB_DATA_TYPES:
+        if data_type in raw_data_lists.keys():
+            data_ids = write_raw_cuwb_data(
+                raw_data=raw_data_lists[data_type],
+                data_type=data_type,
+                device_types=device_types,
+                coordinate_space_id=coordinate_space_id,
+                chunk_size=chunk_size,
+                client=client,
+                uri=uri,
+                token_uri=token_uri,
+                audience=audience,
+                client_id=client_id,
+                client_secret=client_secret
+            )
+            data_id_lists[data_type] = data_ids
+    return data_id_lists
+
 def write_raw_cuwb_data(
     raw_data,
     data_type,
