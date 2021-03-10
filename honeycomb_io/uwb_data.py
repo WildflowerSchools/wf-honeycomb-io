@@ -14,12 +14,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# CUWB Data Protocol: Byte size for CUWB data values
+# CUWB Data Protocol (https://cuwb.io/docs/v3.1/software-integration/cdp-output-definition/)
+POSITION_SCALE_FACTOR = 1000.0 # Convert millimeters to meters
 ACCELEROMETER_BYTE_SIZE = 4
 GYROSCOPE_BYTE_SIZE = 4
 MAGNETOMETER_BYTE_SIZE = 4
-
-# CUWB Data Protocol: Maximum integer for each byte size
 CUWB_DATA_MAX_INT = {
     1: 127,
     2: 32767,
@@ -32,6 +31,7 @@ def write_raw_cuwb_data(
     raw_data,
     data_type,
     device_types=['UWBTAG'],
+    coordinate_space_id=None,
     chunk_size=1000,
     client=None,
     uri=None,
@@ -84,7 +84,15 @@ def write_raw_cuwb_data(
     parsed_data = parse_raw_cuwb_data(
         raw_data=raw_data,
         data_type=data_type,
-        device_id_lookup=device_id_lookup
+        device_id_lookup=device_id_lookup,
+        coordinate_space_id=coordinate_space_id,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
     )
     num_parsed_observations = len(parsed_data)
     if num_parsed_observations == 0:
@@ -125,7 +133,19 @@ def write_cuwb_data(
     client_id=None,
     client_secret=None
 ):
-    if data_type == 'accelerometer':
+    if data_type == 'position':
+        data_ids = write_position_data(
+            position_data=parsed_data,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        return data_ids
+    elif data_type == 'accelerometer':
         data_ids = write_accelerometer_data(
             accelerometer_data=parsed_data,
             chunk_size=chunk_size,
@@ -165,6 +185,43 @@ def write_cuwb_data(
         raise ValueError('Device type {} not currently supported'.format(
             device_type
         ))
+
+def write_position_data(
+    position_data,
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    num_parsed_observations = len(position_data)
+    logger.info('Writing {} CUWB position observations to Honeycomb'.format(
+        num_parsed_observations
+    ))
+    if num_parsed_observations == 0:
+        logger.warn('List of CUWB position observations is empty')
+        return []
+    position_data_ids = honeycomb_io.core.create_objects(
+        object_name='Position',
+        data=position_data,
+        request_name=None,
+        argument_name=None,
+        argument_type=None,
+        id_field_name=None,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Successfully wrote {} CUWB position observations to Honeycomb'.format(
+        len(position_data_ids)
+    ))
+    return position_data_ids
 
 def write_accelerometer_data(
     accelerometer_data,
@@ -280,9 +337,31 @@ def write_magnetometer_data(
 def parse_raw_cuwb_data(
     raw_data,
     data_type,
-    device_id_lookup
+    device_id_lookup,
+    coordinate_space_id=None,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
 ):
-    if data_type=='accelerometer':
+    if data_type=='position':
+        parsed_data = parse_raw_position_data(
+            raw_position_data=raw_data,
+            device_id_lookup=device_id_lookup,
+            coordinate_space_id=coordinate_space_id,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        return parsed_data
+    elif data_type=='accelerometer':
         parsed_data = parse_raw_accelerometer_data(
             raw_accelerometer_data=raw_data,
             device_id_lookup=device_id_lookup
@@ -304,6 +383,64 @@ def parse_raw_cuwb_data(
         raise ValueError('Data type {} not currently supported'.format(
             data_type
         ))
+
+def parse_raw_position_data(
+    raw_position_data,
+    device_id_lookup,
+    coordinate_space_id=None,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    num_raw_observations = len(raw_position_data)
+    num_tag_ids = len(device_id_lookup)
+    logger.info('Parsing {} raw CUWB position observations looking for {} serial numbers: {}'.format(
+        num_raw_observations,
+        num_tag_ids,
+        list(device_id_lookup.keys())
+    ))
+    if num_raw_observations == 0:
+        logger.warn('List of raw CUWB position observations is empty')
+        return []
+    if coordinate_space_id is None:
+        timestamps = pd.to_datetime([datum.get('timestamp') for datum in raw_position_data])
+        device_ids = list(set([device_id_lookup[datum.get('serial_number')] for datum in raw_position_data if datum.get('serial_number') in device_id_lookup.keys()]))
+        coordinate_space_id = fetch_coordinate_space_id(
+            device_ids=device_ids,
+            start=timestamps.min().to_pydatetime(),
+            end=timestamps.max().to_pydatetime(),
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    position_data = list()
+    for datum in raw_position_data:
+        if datum['serial_number'] in device_id_lookup.keys():
+            position_data.append({
+                'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
+                'coordinate_space': coordinate_space_id,
+                'object': device_id_lookup[datum['serial_number']],
+                'coordinates': [
+                    datum['x']/POSITION_SCALE_FACTOR,
+                    datum['y']/POSITION_SCALE_FACTOR,
+                    datum['z']/POSITION_SCALE_FACTOR
+                ],
+                'source_type': 'MEASURED'
+            })
+    num_parsed_observations = len(position_data)
+    logger.info('Data yielded {} CUWB position observations for target serial numbers ({})'.format(
+        num_parsed_observations,
+        list(device_id_lookup.keys())
+    ))
+    return position_data
 
 def parse_raw_accelerometer_data(
     raw_accelerometer_data,
@@ -478,6 +615,117 @@ def fetch_uwb_device_id_lookup(
         device_types
     ))
     return device_id_lookup
+
+def fetch_coordinate_space_id(
+    device_ids,
+    start,
+    end,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    logger.info('Attempting to identify coordinate space id for device IDs {} for the period {} to {}'.format(
+        device_ids,
+        start.isoformat(),
+        end.isoformat()
+    ))
+    logger.info('Attempting to identify environment for device IDs {} for the period {} to {}'.format(
+        device_ids,
+        start.isoformat(),
+        end.isoformat()
+    ))
+    query_list = [
+        {'field': 'assigned', 'operator': 'CONTAINED_BY', 'values': device_ids},
+        {'field': 'start', 'operator': 'LTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(end)},
+        {'operator': 'OR', 'children': [
+            {'field': 'end', 'operator': 'ISNULL'},
+            {'field': 'end', 'operator': 'GTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(start)}
+        ]}
+    ]
+    return_data = [
+        'assignment_id',
+        {'environment': [
+            'environment_id',
+            'name'
+        ]}
+    ]
+    result = honeycomb_io.core.search_objects(
+        object_name='Assignment',
+        query_list=query_list,
+        return_data=return_data,
+        request_name=None,
+        id_field_name=None,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    environment_ids = list(set([datum.get('environment', {}).get('environment_id') for datum in result]))
+    environment_names = list(set([datum.get('environment', {}).get('name') for datum in result]))
+    if len(environment_ids) == 0:
+        raise ValueError('No environments appear to be associated with specified devices in the specified period')
+    if len(environment_ids) > 1:
+        raise ValueError('Multiple environments appear to be associated with specified devices in the specified period: {}'.format(
+            environment_names
+        ))
+    environment_id = environment_ids[0]
+    environment_name = environment_names[0]
+    logger.info('Specified devices all appear to be assigned to the \'{}\' environment in the specified period'.format(
+        environment_name
+    ))
+    logger.info('Attempting to identify coordinate space id for the \'{}\' environment for the period {} to {}'.format(
+        environment_name,
+        start.isoformat(),
+        end.isoformat()
+    ))
+    query_list = [
+        {'field': 'environment', 'operator': 'EQ', 'value': environment_id},
+        {'field': 'start', 'operator': 'LTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(end)},
+        {'operator': 'OR', 'children': [
+            {'field': 'end', 'operator': 'ISNULL'},
+            {'field': 'end', 'operator': 'GTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(start)}
+        ]}
+    ]
+    return_data = [
+        'space_id',
+        'name'
+    ]
+    result = honeycomb_io.core.search_objects(
+        object_name='CoordinateSpace',
+        query_list=query_list,
+        return_data=return_data,
+        request_name=None,
+        id_field_name=None,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    coordinate_space_ids = list(set([datum.get('space_id') for datum in result]))
+    coordinate_space_names = list(set([datum.get('name') for datum in result]))
+    if len(coordinate_space_ids) == 0:
+        raise ValueError('No coordinate spaces appear to be associated with specified environment in the specified period')
+    if len(coordinate_space_ids) > 1:
+        raise ValueError('Multiple coordinate spaces appear to be associated with specified environment in the specified period: {}'.format(
+            coordinate_space_ids
+        ))
+    coordinate_space_id = coordinate_space_ids[0]
+    coordinate_space_name = coordinate_space_names[0]
+    logger.info('The \'{}\' environment appears to have a unique coordinate space defined in the specified period: \'{}\''.format(
+        environment_name,
+        coordinate_space_name
+    ))
+    return coordinate_space_id
 
 # Used by:
 # process_cuwb_data.core (wf-process-cuwb-data)
