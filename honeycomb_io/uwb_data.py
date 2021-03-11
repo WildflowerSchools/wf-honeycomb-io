@@ -3,6 +3,7 @@ import honeycomb_io.utils
 import honeycomb_io.environments
 import honeycomb_io.devices
 import honeycomb_io.materials
+import honeycomb_io.exceptions
 import minimal_honeycomb
 import pandas as pd
 import numpy as np
@@ -27,6 +28,13 @@ CUWB_DATA_MAX_INT = {
 
 SUPPORTED_CUWB_DATA_TYPES = ['position', 'accelerometer', 'gyroscope', 'magnetometer']
 
+OBJECT_NAMES = {
+    'position': 'Position',
+    'accelerometer': 'AccelerometerData',
+    'gyroscope': 'GyroscopeData',
+    'magnetometer': 'MagnetometerData'
+}
+
 def write_raw_cuwb_data_lists(
     raw_data_lists,
     device_types=['UWBTAG'],
@@ -42,19 +50,39 @@ def write_raw_cuwb_data_lists(
     data_id_lists = dict()
     for data_type in SUPPORTED_CUWB_DATA_TYPES:
         if data_type in raw_data_lists.keys():
-            data_ids = write_raw_cuwb_data(
-                raw_data=raw_data_lists[data_type],
-                data_type=data_type,
-                device_types=device_types,
-                coordinate_space_id=coordinate_space_id,
-                chunk_size=chunk_size,
-                client=client,
-                uri=uri,
-                token_uri=token_uri,
-                audience=audience,
-                client_id=client_id,
-                client_secret=client_secret
-            )
+            try:
+                data_ids = write_raw_cuwb_data(
+                    raw_data=raw_data_lists[data_type],
+                    data_type=data_type,
+                    device_types=device_types,
+                    coordinate_space_id=coordinate_space_id,
+                    chunk_size=chunk_size,
+                    client=client,
+                    uri=uri,
+                    token_uri=token_uri,
+                    audience=audience,
+                    client_id=client_id,
+                    client_secret=client_secret
+                )
+            except(honeycomb_io.exceptions.HoneycombWriteError):
+                logger.warn('Error occurred during write. Attempting to roll back changes')
+                if len(data_id_lists) > 0:
+                    try:
+                        delete_cuwb_data(
+                            data_id_lists=data_id_lists,
+                            chunk_size=chunk_size,
+                            client=client,
+                            uri=uri,
+                            token_uri=token_uri,
+                            audience=audience,
+                            client_id=client_id,
+                            client_secret=client_secret
+                        )
+                    except(HoneycombDeleteError):
+                        raise honeycomb_io.exceptions.HoneycombWriteErrorNoRetryCleanupFailed(
+                            'Write failed and attempt to roll back changes failed'
+                        )
+                raise
             data_id_lists[data_type] = data_ids
     return data_id_lists
 
@@ -234,21 +262,26 @@ def write_position_data(
     if num_parsed_observations == 0:
         logger.warn('List of CUWB position observations is empty')
         return []
-    position_data_ids = honeycomb_io.core.create_objects(
-        object_name='Position',
-        data=position_data,
-        request_name=None,
-        argument_name=None,
-        argument_type=None,
-        id_field_name=None,
-        chunk_size=chunk_size,
-        client=client,
-        uri=uri,
-        token_uri=token_uri,
-        audience=audience,
-        client_id=client_id,
-        client_secret=client_secret
-    )
+    try:
+        position_data_ids = honeycomb_io.core.create_objects(
+            object_name='Position',
+            data=position_data,
+            request_name=None,
+            argument_name=None,
+            argument_type=None,
+            id_field_name=None,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    except:
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'Encountered problem when attempting to write assignment data'
+        )
     logger.info('Successfully wrote {} CUWB position observations to Honeycomb'.format(
         len(position_data_ids)
     ))
@@ -271,21 +304,26 @@ def write_accelerometer_data(
     if num_parsed_observations == 0:
         logger.warn('List of CUWB accelerometer observations is empty')
         return []
-    accelerometer_data_ids = honeycomb_io.core.create_objects(
-        object_name='AccelerometerData',
-        data=accelerometer_data,
-        request_name=None,
-        argument_name=None,
-        argument_type=None,
-        id_field_name=None,
-        chunk_size=chunk_size,
-        client=client,
-        uri=uri,
-        token_uri=token_uri,
-        audience=audience,
-        client_id=client_id,
-        client_secret=client_secret
-    )
+    try:
+        accelerometer_data_ids = honeycomb_io.core.create_objects(
+            object_name='AccelerometerData',
+            data=accelerometer_data,
+            request_name=None,
+            argument_name=None,
+            argument_type=None,
+            id_field_name=None,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    except:
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'Encountered problem when attempting to write accelerometer data'
+        )
     logger.info('Successfully wrote {} CUWB accelerometer observations to Honeycomb'.format(
         len(accelerometer_data_ids)
     ))
@@ -308,21 +346,26 @@ def write_gyroscope_data(
     if num_parsed_observations == 0:
         logger.warn('List of CUWB gyroscope observations is empty')
         return []
-    gyroscope_data_ids = honeycomb_io.core.create_objects(
-        object_name='GyroscopeData',
-        data=gyroscope_data,
-        request_name=None,
-        argument_name=None,
-        argument_type=None,
-        id_field_name=None,
-        chunk_size=chunk_size,
-        client=client,
-        uri=uri,
-        token_uri=token_uri,
-        audience=audience,
-        client_id=client_id,
-        client_secret=client_secret
-    )
+    try:
+        gyroscope_data_ids = honeycomb_io.core.create_objects(
+            object_name='GyroscopeData',
+            data=gyroscope_data,
+            request_name=None,
+            argument_name=None,
+            argument_type=None,
+            id_field_name=None,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    except:
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'Encountered problem when attempting to write gyroscope data'
+        )
     logger.info('Successfully wrote {} CUWB gyroscope observations to Honeycomb'.format(
         len(gyroscope_data_ids)
     ))
@@ -345,25 +388,80 @@ def write_magnetometer_data(
     if num_parsed_observations == 0:
         logger.warn('List of CUWB magnetometer observations is empty')
         return []
-    magnetometer_data_ids = honeycomb_io.core.create_objects(
-        object_name='MagnetometerData',
-        data=magnetometer_data,
-        request_name=None,
-        argument_name=None,
-        argument_type=None,
-        id_field_name=None,
-        chunk_size=chunk_size,
-        client=client,
-        uri=uri,
-        token_uri=token_uri,
-        audience=audience,
-        client_id=client_id,
-        client_secret=client_secret
-    )
+    try:
+        magnetometer_data_ids = honeycomb_io.core.create_objects(
+            object_name='MagnetometerData',
+            data=magnetometer_data,
+            request_name=None,
+            argument_name=None,
+            argument_type=None,
+            id_field_name=None,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    except:
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'Encountered problem when attempting to write magnetometer data'
+        )
     logger.info('Successfully wrote {} CUWB magnetometer observations to Honeycomb'.format(
         len(magnetometer_data_ids)
     ))
     return magnetometer_data_ids
+
+def delete_cuwb_data(
+    data_id_lists,
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    for data_type in data_id_lists.keys():
+        ids = data_id_lists[data_type]
+        object_name = OBJECT_NAMES[data_type]
+        logger.info('Attempting to delete {} {} observations'.format(
+            len(ids),
+            data_type
+        ))
+        try:
+            statuses = honeycomb_io.core.delete_objects(
+                object_name=object_name,
+                ids=ids,
+                request_name=None,
+                id_field_name=None,
+                chunk_size=chunk_size,
+                client=client,
+                uri=uri,
+                token_uri=token_uri,
+                audience=audience,
+                client_id=client_id,
+                client_secret=client_secret
+            )
+        except:
+            raise honeycomb_io.exceptions.HoneycombDeleteError(
+                'Encountered problem when attempting to delete {} data'.format(
+                    data_type
+                )
+            )
+        if len(statuses) != len(ids):
+            raise honeycomb_io.exceptions.HoneycombDeleteError(
+                'Returned status vector different length than id vector when attempting to delete {} data'.format(
+                    data_type
+                )
+            )
+        if set([item['status'] for item in statuses]) != {'ok'}:
+            raise honeycomb_io.exceptions.HoneycombDeleteError(
+                'Generated errors when attempting to delete {} data'.format(
+                    data_type
+                )
+            )
 
 def parse_raw_cuwb_data(
     raw_data,
@@ -438,8 +536,17 @@ def parse_raw_position_data(
         logger.warn('List of raw CUWB position observations is empty')
         return []
     if coordinate_space_id is None:
-        timestamps = pd.to_datetime([datum.get('timestamp') for datum in raw_position_data])
-        device_ids = list(set([device_id_lookup[datum.get('serial_number')] for datum in raw_position_data if datum.get('serial_number') in device_id_lookup.keys()]))
+        try:
+            timestamps = pd.to_datetime([datum.get('timestamp') for datum in raw_position_data])
+            device_ids = list(set([
+                device_id_lookup[datum.get('serial_number')]
+                for datum in raw_position_data
+                if datum.get('serial_number') in device_id_lookup.keys()
+            ]))
+        except:
+            raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+                'Failed to extract timestamps and serial numbers from position data'
+            )
         coordinate_space_id = fetch_coordinate_space_id(
             device_ids=device_ids,
             start=timestamps.min().to_pydatetime(),
@@ -453,19 +560,24 @@ def parse_raw_position_data(
             client_secret=client_secret
         )
     position_data = list()
-    for datum in raw_position_data:
-        if datum['serial_number'] in device_id_lookup.keys():
-            position_data.append({
-                'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
-                'coordinate_space': coordinate_space_id,
-                'object': device_id_lookup[datum['serial_number']],
-                'coordinates': [
-                    datum['x']/POSITION_SCALE_FACTOR,
-                    datum['y']/POSITION_SCALE_FACTOR,
-                    datum['z']/POSITION_SCALE_FACTOR
-                ],
-                'source_type': 'MEASURED'
-            })
+    try:
+        for datum in raw_position_data:
+            if datum['serial_number'] in device_id_lookup.keys():
+                position_data.append({
+                    'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
+                    'coordinate_space': coordinate_space_id,
+                    'object': device_id_lookup[datum['serial_number']],
+                    'coordinates': [
+                        datum['x']/POSITION_SCALE_FACTOR,
+                        datum['y']/POSITION_SCALE_FACTOR,
+                        datum['z']/POSITION_SCALE_FACTOR
+                    ],
+                    'source_type': 'MEASURED'
+                })
+    except:
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'Failed to parse position data'
+        )
     num_parsed_observations = len(position_data)
     logger.info('Data yielded {} CUWB position observations for target serial numbers ({})'.format(
         num_parsed_observations,
@@ -488,17 +600,22 @@ def parse_raw_accelerometer_data(
         logger.warn('List of raw CUWB accelerometer observations is empty')
         return []
     accelerometer_data = list()
-    for datum in raw_accelerometer_data:
-        if datum['serial_number'] in device_id_lookup.keys():
-            accelerometer_data.append({
-                'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
-                'device': device_id_lookup[datum['serial_number']],
-                'data': [
-                    datum['x']*datum['scale']/CUWB_DATA_MAX_INT[ACCELEROMETER_BYTE_SIZE],
-                    datum['y']*datum['scale']/CUWB_DATA_MAX_INT[ACCELEROMETER_BYTE_SIZE],
-                    datum['z']*datum['scale']/CUWB_DATA_MAX_INT[ACCELEROMETER_BYTE_SIZE]
-                ]
-            })
+    try:
+        for datum in raw_accelerometer_data:
+            if datum['serial_number'] in device_id_lookup.keys():
+                accelerometer_data.append({
+                    'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
+                    'device': device_id_lookup[datum['serial_number']],
+                    'data': [
+                        datum['x']*datum['scale']/CUWB_DATA_MAX_INT[ACCELEROMETER_BYTE_SIZE],
+                        datum['y']*datum['scale']/CUWB_DATA_MAX_INT[ACCELEROMETER_BYTE_SIZE],
+                        datum['z']*datum['scale']/CUWB_DATA_MAX_INT[ACCELEROMETER_BYTE_SIZE]
+                    ]
+                })
+    except:
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'Failed to parse accelerometer data'
+        )
     num_parsed_observations = len(accelerometer_data)
     logger.info('Data yielded {} CUWB accelerometer observations for target serial numbers ({})'.format(
         num_parsed_observations,
@@ -521,17 +638,22 @@ def parse_raw_gyroscope_data(
         logger.warn('List of raw CUWB gyroscope observations is empty')
         return []
     gyroscope_data = list()
-    for datum in raw_gyroscope_data:
-        if datum['serial_number'] in device_id_lookup.keys():
-            gyroscope_data.append({
-                'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
-                'device': device_id_lookup[datum['serial_number']],
-                'data': [
-                    datum['x']*datum['scale']/CUWB_DATA_MAX_INT[GYROSCOPE_BYTE_SIZE],
-                    datum['y']*datum['scale']/CUWB_DATA_MAX_INT[GYROSCOPE_BYTE_SIZE],
-                    datum['z']*datum['scale']/CUWB_DATA_MAX_INT[GYROSCOPE_BYTE_SIZE]
-                ]
-            })
+    try:
+        for datum in raw_gyroscope_data:
+            if datum['serial_number'] in device_id_lookup.keys():
+                gyroscope_data.append({
+                    'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
+                    'device': device_id_lookup[datum['serial_number']],
+                    'data': [
+                        datum['x']*datum['scale']/CUWB_DATA_MAX_INT[GYROSCOPE_BYTE_SIZE],
+                        datum['y']*datum['scale']/CUWB_DATA_MAX_INT[GYROSCOPE_BYTE_SIZE],
+                        datum['z']*datum['scale']/CUWB_DATA_MAX_INT[GYROSCOPE_BYTE_SIZE]
+                    ]
+                })
+    except:
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'Failed to parse gyroscope data'
+        )
     num_parsed_observations = len(gyroscope_data)
     logger.info('Data yielded {} CUWB gyroscope observations for target serial numbers ({})'.format(
         num_parsed_observations,
@@ -554,17 +676,22 @@ def parse_raw_magnetometer_data(
         logger.warn('List of raw CUWB magnetometer observations is empty')
         return []
     magnetometer_data = list()
-    for datum in raw_magnetometer_data:
-        if datum['serial_number'] in device_id_lookup.keys():
-            magnetometer_data.append({
-                'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
-                'device': device_id_lookup[datum['serial_number']],
-                'data': [
-                    datum['x']*datum['scale']/CUWB_DATA_MAX_INT[MAGNETOMETER_BYTE_SIZE],
-                    datum['y']*datum['scale']/CUWB_DATA_MAX_INT[MAGNETOMETER_BYTE_SIZE],
-                    datum['z']*datum['scale']/CUWB_DATA_MAX_INT[MAGNETOMETER_BYTE_SIZE]
-                ]
-            })
+    try:
+        for datum in raw_magnetometer_data:
+            if datum['serial_number'] in device_id_lookup.keys():
+                magnetometer_data.append({
+                    'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
+                    'device': device_id_lookup[datum['serial_number']],
+                    'data': [
+                        datum['x']*datum['scale']/CUWB_DATA_MAX_INT[MAGNETOMETER_BYTE_SIZE],
+                        datum['y']*datum['scale']/CUWB_DATA_MAX_INT[MAGNETOMETER_BYTE_SIZE],
+                        datum['z']*datum['scale']/CUWB_DATA_MAX_INT[MAGNETOMETER_BYTE_SIZE]
+                    ]
+                })
+    except:
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'Failed to parse magnetometer data'
+        )
     num_parsed_observations = len(magnetometer_data)
     logger.info('Data yielded {} CUWB magnetometer observations for target serial numbers ({})'.format(
         num_parsed_observations,
@@ -586,7 +713,7 @@ def extract_serial_numbers(
     for datum in raw_data:
         serial_number = datum.get('serial_number')
         if serial_number is None:
-            raise ValueError('CUWB observation {} does not contain a serial number'.format(
+            raise honeycomb_io.exceptions.HoneycombWriteErrorRetry('CUWB observation {} does not contain a serial number'.format(
                 datum
             ))
         else:
@@ -625,20 +752,25 @@ def fetch_uwb_device_id_lookup(
         'device_id',
         'serial_number'
     ]
-    result = honeycomb_io.core.search_objects(
-        object_name='Device',
-        query_list=query_list,
-        return_data=return_data,
-        request_name=None,
-        id_field_name=None,
-        chunk_size=chunk_size,
-        client=client,
-        uri=uri,
-        token_uri=token_uri,
-        audience=audience,
-        client_id=client_id,
-        client_secret=client_secret
-    )
+    try:
+        result = honeycomb_io.core.search_objects(
+            object_name='Device',
+            query_list=query_list,
+            return_data=return_data,
+            request_name=None,
+            id_field_name=None,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    except:
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'Encountered problem when attempting to fetch device info'
+        )
     device_id_lookup = {datum['serial_number']: datum['device_id'] for datum in result}
     logger.info('Found {} UWB serial numbers ({}) corresponding to target types ({})'.format(
         len(device_id_lookup),
@@ -684,28 +816,37 @@ def fetch_coordinate_space_id(
             'name'
         ]}
     ]
-    result = honeycomb_io.core.search_objects(
-        object_name='Assignment',
-        query_list=query_list,
-        return_data=return_data,
-        request_name=None,
-        id_field_name=None,
-        chunk_size=chunk_size,
-        client=client,
-        uri=uri,
-        token_uri=token_uri,
-        audience=audience,
-        client_id=client_id,
-        client_secret=client_secret
-    )
+    try:
+        result = honeycomb_io.core.search_objects(
+            object_name='Assignment',
+            query_list=query_list,
+            return_data=return_data,
+            request_name=None,
+            id_field_name=None,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    except:
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'Encountered problem when attempting to fetch assignment data'
+        )
     environment_ids = list(set([datum.get('environment', {}).get('environment_id') for datum in result]))
     environment_names = list(set([datum.get('environment', {}).get('name') for datum in result]))
     if len(environment_ids) == 0:
-        raise ValueError('No environments appear to be associated with specified devices in the specified period')
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'No environments appear to be associated with specified devices in the specified period'
+        )
     if len(environment_ids) > 1:
-        raise ValueError('Multiple environments appear to be associated with specified devices in the specified period: {}'.format(
-            environment_names
-        ))
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'Multiple environments appear to be associated with specified devices in the specified period: {}'.format(
+                environment_names
+            )
+        )
     environment_id = environment_ids[0]
     environment_name = environment_names[0]
     logger.info('Specified devices all appear to be assigned to the \'{}\' environment in the specified period'.format(
@@ -728,28 +869,37 @@ def fetch_coordinate_space_id(
         'space_id',
         'name'
     ]
-    result = honeycomb_io.core.search_objects(
-        object_name='CoordinateSpace',
-        query_list=query_list,
-        return_data=return_data,
-        request_name=None,
-        id_field_name=None,
-        chunk_size=chunk_size,
-        client=client,
-        uri=uri,
-        token_uri=token_uri,
-        audience=audience,
-        client_id=client_id,
-        client_secret=client_secret
-    )
+    try:
+        result = honeycomb_io.core.search_objects(
+            object_name='CoordinateSpace',
+            query_list=query_list,
+            return_data=return_data,
+            request_name=None,
+            id_field_name=None,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    except:
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'Encountered problem when attempting to fetch coordinate space data'
+        )
     coordinate_space_ids = list(set([datum.get('space_id') for datum in result]))
     coordinate_space_names = list(set([datum.get('name') for datum in result]))
     if len(coordinate_space_ids) == 0:
-        raise ValueError('No coordinate spaces appear to be associated with specified environment in the specified period')
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'No coordinate spaces appear to be associated with specified environment in the specified period'
+        )
     if len(coordinate_space_ids) > 1:
-        raise ValueError('Multiple coordinate spaces appear to be associated with specified environment in the specified period: {}'.format(
-            coordinate_space_ids
-        ))
+        raise honeycomb_io.exceptions.HoneycombWriteErrorRetry(
+            'Multiple coordinate spaces appear to be associated with specified environment in the specified period: {}'.format(
+                coordinate_space_ids
+            )
+        )
     coordinate_space_id = coordinate_space_ids[0]
     coordinate_space_name = coordinate_space_names[0]
     logger.info('The \'{}\' environment appears to have a unique coordinate space defined in the specified period: \'{}\''.format(
