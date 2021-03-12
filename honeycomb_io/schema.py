@@ -4,6 +4,9 @@ SCHEMA = {
     'Datapoint': {
         'id_field_name': 'data_id'
     },
+    'CoordinateSpace': {
+        'id_field_name': 'space_id'
+    },
     'Pose2D': {
         'search_endpoint_name': 'searchPoses2D',
         'id_field_name': 'pose_id'
