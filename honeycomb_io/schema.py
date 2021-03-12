@@ -22,6 +22,15 @@ SCHEMA = {
     'Pose3D': {
         'search_endpoint_name': 'searchPoseTracks3D',
         'id_field_name': 'pose_track_id'
+    },
+    'AccelerometerData': {
+        'search_endpoint_name': 'searchAccelerometerData'
+    },
+    'GyroscopeData': {
+        'search_endpoint_name': 'searchGyroscopeData'
+    },
+    'MagnetometerData': {
+        'search_endpoint_name': 'searchMagnetometerData'
     }
 }
 
