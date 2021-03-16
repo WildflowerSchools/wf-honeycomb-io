@@ -196,3 +196,34 @@ def fetch_device_assignments(
     if device_type is not None:
         df = df.loc[df['device_type'] == device_type].copy()
     return df
+
+def filter_assignments(
+    assignments,
+    environment_id=None,
+    environment_name=None,
+    start=None,
+    end=None
+):
+    filtered_assignments = list(filter(
+        lambda assignment: (
+            (
+                environment_id is None or
+                assignment.get('environment').get('environment_id') == environent_id
+            ) and
+            (
+                environment_name is None or
+                assignment.get('environment').get('name') == environment_name
+            ) and
+            (
+                start is None or
+                assignment.get('end') is None or
+                pd.to_datetime(assignment.get('end'), utc=True) >= pd.to_datetime(start, utc=True)
+            ) and
+            (
+                end is None or
+                pd.to_datetime(assignment.get('start'), utc=True) <= pd.to_datetime(end, utc=True)
+            )
+        ),
+        assignments
+    ))
+    return filtered_assignments
