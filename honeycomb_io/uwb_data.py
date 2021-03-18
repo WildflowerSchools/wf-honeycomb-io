@@ -970,6 +970,323 @@ def fetch_coordinate_space_id(
     ))
     return coordinate_space_id
 
+def fetch_cuwb_position_data(
+    start,
+    end,
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if device_ids is None:
+        device_ids = honeycomb_io.devices.fetch_device_ids(
+            device_types=device_types,
+            environment_id=environment_id,
+            environment_name=environment_name,
+            start=start,
+            end=end,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    query_list = [
+        {'field': 'timestamp', 'operator': 'GTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(start)},
+        {'field': 'timestamp', 'operator': 'LTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(end)}
+    ]
+    if device_ids is not None:
+        query_list.append(
+            {'field': 'object', 'operator': 'CONTAINED_BY', 'values': device_ids}
+        )
+    return_data = [
+        'position_id',
+        'timestamp',
+        {'coordinate_space': [
+            'space_id'
+        ]},
+        {'object': [
+            {'... on Device': [
+                'device_id',
+                'part_number',
+                'serial_number',
+                'tag_id',
+                'name'
+            ]}
+        ]},
+        'coordinates'
+    ]
+    if device_ids is not None:
+        logger.info('Fetching position data for devices {} for period {} to {}'.format(
+            device_ids,
+            start.isoformat(),
+            end.isoformat()
+        ))
+    else:
+        logger.info('Fetching all position data for period {} to {}'.format(
+            start.isoformat(),
+            end.isoformat()
+        ))
+    results = honeycomb_io.core.search_objects(
+        object_name='Position',
+        query_list=query_list,
+        return_data=return_data,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Fetched {} position observations'.format(
+        len(results)
+    ))
+    return results
+
+def fetch_cuwb_accelerometer_data(
+    start,
+    end,
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if device_ids is None:
+        device_ids = honeycomb_io.devices.fetch_device_ids(
+            device_types=device_types,
+            environment_id=environment_id,
+            environment_name=environment_name,
+            start=start,
+            end=end,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    query_list = [
+        {'field': 'timestamp', 'operator': 'GTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(start)},
+        {'field': 'timestamp', 'operator': 'LTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(end)}
+    ]
+    if device_ids is not None:
+        query_list.append(
+            {'field': 'device', 'operator': 'CONTAINED_BY', 'values': device_ids}
+        )
+    return_data = [
+        'accelerometer_data_id',
+        'timestamp',
+        {'device': [
+            'device_id',
+            'part_number',
+            'serial_number',
+            'tag_id',
+            'name'
+        ]},
+        'data'
+    ]
+    if device_ids is not None:
+        logger.info('Fetching accelerometer data for devices {} for period {} to {}'.format(
+            device_ids,
+            start.isoformat(),
+            end.isoformat()
+        ))
+    else:
+        logger.info('Fetching all accelerometer data for period {} to {}'.format(
+            start.isoformat(),
+            end.isoformat()
+        ))
+    results = honeycomb_io.core.search_objects(
+        object_name='AccelerometerData',
+        query_list=query_list,
+        return_data=return_data,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Fetched {} accelerometer observations'.format(
+        len(results)
+    ))
+    return results
+
+def fetch_cuwb_gyroscope_data(
+    start,
+    end,
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if device_ids is None:
+        device_ids = honeycomb_io.devices.fetch_device_ids(
+            device_types=device_types,
+            environment_id=environment_id,
+            environment_name=environment_name,
+            start=start,
+            end=end,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    query_list = [
+        {'field': 'timestamp', 'operator': 'GTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(start)},
+        {'field': 'timestamp', 'operator': 'LTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(end)}
+    ]
+    if device_ids is not None:
+        query_list.append(
+            {'field': 'device', 'operator': 'CONTAINED_BY', 'values': device_ids}
+        )
+    return_data = [
+        'gyroscope_data_id',
+        'timestamp',
+        {'device': [
+            'device_id',
+            'part_number',
+            'serial_number',
+            'tag_id',
+            'name'
+        ]},
+        'data'
+    ]
+    if device_ids is not None:
+        logger.info('Fetching gyroscope data for devices {} for period {} to {}'.format(
+            device_ids,
+            start.isoformat(),
+            end.isoformat()
+        ))
+    else:
+        logger.info('Fetching all gyroscope data for period {} to {}'.format(
+            start.isoformat(),
+            end.isoformat()
+        ))
+    results = honeycomb_io.core.search_objects(
+        object_name='GyroscopeData',
+        query_list=query_list,
+        return_data=return_data,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Fetched {} gyroscope observations'.format(
+        len(results)
+    ))
+    return results
+
+def fetch_cuwb_magnetometer_data(
+    start,
+    end,
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if device_ids is None:
+        device_ids = honeycomb_io.devices.fetch_device_ids(
+            device_types=device_types,
+            environment_id=environment_id,
+            environment_name=environment_name,
+            start=start,
+            end=end,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    query_list = [
+        {'field': 'timestamp', 'operator': 'GTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(start)},
+        {'field': 'timestamp', 'operator': 'LTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(end)}
+    ]
+    if device_ids is not None:
+        query_list.append(
+            {'field': 'device', 'operator': 'CONTAINED_BY', 'values': device_ids}
+        )
+    return_data = [
+        'magnetometer_data_id',
+        'timestamp',
+        {'device': [
+            'device_id',
+            'part_number',
+            'serial_number',
+            'tag_id',
+            'name'
+        ]},
+        'data'
+    ]
+    if device_ids is not None:
+        logger.info('Fetching magnetometer data for devices {} for period {} to {}'.format(
+            device_ids,
+            start.isoformat(),
+            end.isoformat()
+        ))
+    else:
+        logger.info('Fetching all magnetometer data for period {} to {}'.format(
+            start.isoformat(),
+            end.isoformat()
+        ))
+    results = honeycomb_io.core.search_objects(
+        object_name='MagnetometerData',
+        query_list=query_list,
+        return_data=return_data,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Fetched {} magnetometer observations'.format(
+        len(results)
+    ))
+    return results
+
 # Used by:
 # process_cuwb_data.core (wf-process-cuwb-data)
 # process_cuwb_data.geom_render (wf-process-cuwb-data)
