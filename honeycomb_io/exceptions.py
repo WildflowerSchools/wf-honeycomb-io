@@ -1,4 +1,3 @@
-# Enum fors representing status (part of the contract with honeycomb_cuwb_log_processor)
 
 class HoneycombError(Exception):
     pass
