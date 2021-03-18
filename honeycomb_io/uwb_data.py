@@ -35,6 +35,115 @@ OBJECT_NAMES = {
     'magnetometer': 'MagnetometerData'
 }
 
+def raw_cuwb_data_lists_to_parsed(
+    raw_data_lists,
+    device_types=['UWBTAG'],
+    coordinate_space_id=None,
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    data_id_lists = dict()
+    for data_type in SUPPORTED_CUWB_DATA_TYPES:
+        if data_type in raw_data_lists.keys():
+            if data_type not in SUPPORTED_CUWB_DATA_TYPES:
+                raise ValueError('Data type must be one of {}'.format(
+                    SUPPORTED_CUWB_DATA_TYPES
+                ))
+            data_id_lists[data_type] = raw_cuwb_data_to_parsed(
+                raw_data_lists[data_type],
+                data_type,
+                device_types=device_types,
+                coordinate_space_id=coordinate_space_id,
+                chunk_size=chunk_size,
+                client=client,
+                uri=uri,
+                token_uri=token_uri,
+                audience=audience,
+                client_id=client_id,
+                client_secret=client_secret
+            )
+    return data_id_lists
+
+def raw_cuwb_data_to_parsed(
+        raw_data,
+        data_type,
+        device_types=['UWBTAG'],
+        coordinate_space_id=None,
+        chunk_size=1000,
+        client=None,
+        uri=None,
+        token_uri=None,
+        audience=None,
+        client_id=None,
+        client_secret=None
+):
+    if data_type not in SUPPORTED_CUWB_DATA_TYPES:
+        raise ValueError('Data type must be one of {}'.format(
+            SUPPORTED_CUWB_DATA_TYPES
+        ))
+    num_raw_observations = len(raw_data)
+    if num_raw_observations == 0:
+        logger.warn('List of raw CUWB {} observations is empty'.format(
+            data_type
+        ))
+        return []
+    logger.info('Processing {} raw CUWB {} observations'.format(
+        num_raw_observations,
+        data_type
+    ))
+    serial_numbers = extract_serial_numbers(
+        raw_data=raw_data
+    )
+    num_serial_numbers = len(serial_numbers)
+    if num_serial_numbers == 0:
+        logger.warn('Raw CUWB {} observations appear to contain no serial numbers'.format(
+            device_types
+        ))
+        return []
+    device_id_lookup = honeycomb_io.fetch_uwb_device_id_lookup(
+        serial_numbers=serial_numbers,
+        device_types=device_types,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    num_uwb_devices = len(device_id_lookup)
+    if num_uwb_devices == 0:
+        logger.warn('Extracted serial numbers ({}) appear to contain no UWB devices corresponding to target device types ({})'.format(
+            serial_numbers,
+            device_types
+        ))
+        return []
+    parsed_data = parse_raw_cuwb_data(
+        raw_data=raw_data,
+        data_type=data_type,
+        device_id_lookup=device_id_lookup,
+        coordinate_space_id=coordinate_space_id,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    num_parsed_observations = len(parsed_data)
+    if num_parsed_observations == 0:
+        logger.warn('Raw CUWB observations appear to contain no data for target device types ({})'.format(
+            device_types
+        ))
+        return []
+    return parsed_data
+
 def write_raw_cuwb_data_lists(
     raw_data_lists,
     device_types=['UWBTAG'],
@@ -78,7 +187,7 @@ def write_raw_cuwb_data_lists(
                             client_id=client_id,
                             client_secret=client_secret
                         )
-                    except(HoneycombDeleteError):
+                    except(honeycomb_io.exceptions.HoneycombDeleteError):
                         raise honeycomb_io.exceptions.HoneycombWriteErrorNoRetryCleanupFailed(
                             'Write failed and attempt to roll back changes failed'
                         )
@@ -99,51 +208,10 @@ def write_raw_cuwb_data(
     client_id=None,
     client_secret=None
 ):
-    if data_type not in SUPPORTED_CUWB_DATA_TYPES:
-     raise ValueError('Data type must be one of {}'.format(
-        SUPPORTED_CUWB_DATA_TYPES
-     ))
-    num_raw_observations = len(raw_data)
-    if num_raw_observations == 0:
-        logger.warn('List of raw CUWB {} observations is empty'.format(
-            data_type
-        ))
-        return []
-    logger.info('Processing {} raw CUWB {} observations'.format(
-        num_raw_observations,
-        data_type
-    ))
-    serial_numbers = extract_serial_numbers(
-        raw_data=raw_data
-    )
-    num_serial_numbers = len(serial_numbers)
-    if num_serial_numbers == 0:
-        logger.warn('Raw CUWB {} observations appear to contain no serial numbers'.format(
-            device_type
-        ))
-        return []
-    device_id_lookup = honeycomb_io.fetch_uwb_device_id_lookup(
-        serial_numbers=serial_numbers,
+    parsed_data = raw_cuwb_data_to_parsed(
+        raw_data,
+        data_type,
         device_types=device_types,
-        chunk_size=chunk_size,
-        client=client,
-        uri=uri,
-        token_uri=token_uri,
-        audience=audience,
-        client_id=client_id,
-        client_secret=client_secret
-    )
-    num_uwb_devices = len(device_id_lookup)
-    if num_uwb_devices == 0:
-        logger.warn('Extracted serial numbers ({}) appear to contain no UWB devices corresponding to target device types ({})'.format(
-            serial_numbers,
-            device_types
-        ))
-        return []
-    parsed_data = parse_raw_cuwb_data(
-        raw_data=raw_data,
-        data_type=data_type,
-        device_id_lookup=device_id_lookup,
         coordinate_space_id=coordinate_space_id,
         chunk_size=chunk_size,
         client=client,
@@ -153,13 +221,6 @@ def write_raw_cuwb_data(
         client_id=client_id,
         client_secret=client_secret
     )
-    num_parsed_observations = len(parsed_data)
-    if num_parsed_observations == 0:
-        logger.warn('Raw CUWB {} observations appear to contain no data for target device types ({})'.format(
-            device_type,
-            device_types
-        ))
-        return []
     data_ids = write_cuwb_data(
         parsed_data=parsed_data,
         data_type=data_type,
@@ -174,6 +235,7 @@ def write_raw_cuwb_data(
     num_uploaded_observations = len(data_ids)
     if num_uploaded_observations == 0:
         logger.warn('Honeycomb reports that no data was written')
+    num_raw_observations = len(raw_data)
     logger.info('Uploaded {} observations from the {} supplied raw CUWB {} observations'.format(
         num_uploaded_observations,
         num_raw_observations,
@@ -241,8 +303,8 @@ def write_cuwb_data(
         )
         return data_ids
     else:
-        raise ValueError('Device type {} not currently supported'.format(
-            device_type
+        raise ValueError('Data type {} not currently supported'.format(
+            data_type
         ))
 
 def write_position_data(
