@@ -1057,7 +1057,7 @@ def fetch_cuwb_position_data(
     elif output_format == 'dataframe':
         return generate_cuwb_position_dataframe(data)
     else:
-        raise ValueError('Format {} not recognized'.format(output_format))
+        raise ValueError('Output format {} not recognized'.format(output_format))
 
 def generate_cuwb_position_dataframe(
     data
@@ -1180,7 +1180,7 @@ def fetch_cuwb_accelerometer_data(
     elif output_format == 'dataframe':
         return generate_cuwb_accelerometer_dataframe(data)
     else:
-        raise ValueError('Format {} not recognized'.format(output_format))
+        raise ValueError('Output format {} not recognized'.format(output_format))
 
 def generate_cuwb_accelerometer_dataframe(
     data
@@ -1301,7 +1301,7 @@ def fetch_cuwb_gyroscope_data(
     elif output_format == 'dataframe':
         return generate_cuwb_gyroscope_dataframe(data)
     else:
-        raise ValueError('Format {} not recognized'.format(output_format))
+        raise ValueError('Output format {} not recognized'.format(output_format))
 
 def generate_cuwb_gyroscope_dataframe(
     data
@@ -1423,7 +1423,7 @@ def fetch_cuwb_magnetometer_data(
     elif output_format == 'dataframe':
         return generate_cuwb_magnetometer_dataframe(data)
     else:
-        raise ValueError('Format {} not recognized'.format(output_format))
+        raise ValueError('Output format {} not recognized'.format(output_format))
 
 def generate_cuwb_magnetometer_dataframe(
     data

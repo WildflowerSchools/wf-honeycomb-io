@@ -2,6 +2,7 @@ import honeycomb_io.core
 import honeycomb_io.utils
 import minimal_honeycomb
 import pandas as pd
+from collections import Counter
 import logging
 
 logger = logging.getLogger(__name__)
@@ -238,6 +239,110 @@ def fetch_devices(
             device_dict[device_id]['assignments'].append(assignment)
     devices = list(device_dict.values())
     return devices
+
+def fetch_device_assignments_by_device_id(
+    device_ids,
+    start=None,
+    end=None,
+    require_unique_assignment=True,
+    require_all_devices=True,
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    query_list = [
+        {'field': 'assigned', 'operator': 'CONTAINED_BY', 'values': device_ids}
+    ]
+    if start is not None:
+        query_list.append(
+            {'operator': 'OR', 'children': [
+                {'field': 'end', 'operator': 'ISNULL'},
+                {'field': 'end', 'operator': 'GTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(start)}
+            ]}
+        )
+    if end is not None:
+        query_list.append(
+            {'field': 'start', 'operator': 'LTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(end)}
+        )
+    return_data = [
+        'assignment_id',
+        {'assigned': [
+            {'... on Device': [
+                'device_id'
+            ]}
+        ]},
+        'start',
+        'end',
+        {'environment': [
+            'environment_id',
+            'name'
+        ]}
+    ]
+    assignments = honeycomb_io.core.search_objects(
+        object_name='Assignment',
+        query_list=query_list,
+        return_data=return_data,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    device_id_count = Counter([assignment.get('assigned', {}).get('device_id') for assignment in assignments])
+    if require_unique_assignment:
+        duplicate_device_ids = list()
+        for device_id in device_id_count.keys():
+            if device_id_count.get(device_id) > 1:
+                duplicate_device_ids.append(device_id)
+        if len(duplicate_device_ids) > 0:
+            raise ValueError('Device IDs {} have more than one assignment in the specified time period'.format(
+                duplicate_device_ids
+            ))
+    if require_unique_assignment:
+        missing_device_ids = set(device_ids) - set(device_id_count.keys())
+        if len(missing_device_ids) > 0:
+            raise ValueError('Device IDs {} have no assignments in the specified time period'.format(
+                list(missing_device_ids)
+            ))
+    if output_format =='list':
+        return assignments
+    elif output_format == 'dataframe':
+        return generate_device_assignment_dataframe(assignments)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def generate_device_assignment_dataframe(
+    assignments
+):
+    flat_list = list()
+    for assignment in assignments:
+        flat_list.append({
+            'assignment_id': assignment.get('assignment_id'),
+            'device_id': assignment.get('assigned', {}).get('device_id'),
+            'assignment_start': pd.to_datetime(assignment.get('start'), utc=True),
+            'assignment_end': pd.to_datetime(assignment.get('end'), utc=True),
+            'environment_id': assignment.get('environment', {}).get('environment_id'),
+            'environment_name': assignment.get('environment', {}).get('name')
+        })
+    df = pd.DataFrame(flat_list, dtype='object')
+    df['assignment_start'] = pd.to_datetime(df['assignment_start'])
+    df['assignment_end'] = pd.to_datetime(df['assignment_end'])
+    df = df.astype({
+        'assignment_id': 'string',
+        'device_id': 'string',
+        'environment_id': 'string',
+        'environment_name': 'string'
+    })
+    df.set_index('assignment_id', inplace=True)
+    return df
+
 
 # Used by:
 # honeycomb_io.uwb_data
