@@ -1462,6 +1462,50 @@ def generate_cuwb_magnetometer_dataframe(
     df.set_index('magnetometer_data_id', inplace=True)
     return df
 
+def add_device_assignment_info(
+    dataframe,
+    timestamp_column_name='timestamp',
+    device_id_column_name='device_id',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if timestamp_column_name not in dataframe.columns:
+        raise ValueError('Dataframe does not contain specified timestamp column \'{}\''.format(
+            timestamp_column_name
+        ))
+    if device_id_column_name not in dataframe.columns:
+        raise ValueError('Dataframe does not contain specified device ID column \'{}\''.format(
+            device_id_column_name
+        ))
+    start = dataframe[timestamp_column_name].min().to_pydatetime()
+    end = dataframe[timestamp_column_name].max().to_pydatetime()
+    device_ids = list(dataframe[device_id_column_name].unique())
+    assignments_df = honeycomb_io.devices.fetch_device_assignments_by_device_id(
+        device_ids=device_ids,
+        start=start,
+        end=end,
+        require_unique_assignment=True,
+        require_all_devices=True,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    dataframe = dataframe.join(
+        assignments_df.reset_index(drop=True).set_index('device_id'),
+        on=device_id_column_name
+    )
+    return dataframe
+
 # Used by:
 # process_cuwb_data.core (wf-process-cuwb-data)
 # process_cuwb_data.geom_render (wf-process-cuwb-data)
