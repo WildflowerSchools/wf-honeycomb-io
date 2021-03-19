@@ -2,6 +2,7 @@ import honeycomb_io.core
 import honeycomb_io.utils
 import honeycomb_io.environments
 import honeycomb_io.devices
+import honeycomb_io.trays
 import honeycomb_io.materials
 import honeycomb_io.exceptions
 import minimal_honeycomb
@@ -1500,6 +1501,8 @@ def add_device_assignment_info(
         client_id=client_id,
         client_secret=client_secret
     )
+    if len(assignments_df) == 0:
+        return dataframe
     dataframe = dataframe.join(
         assignments_df.reset_index(drop=True).set_index('device_id'),
         on=device_id_column_name
@@ -1544,9 +1547,57 @@ def add_device_entity_assignment_info(
         client_id=client_id,
         client_secret=client_secret
     )
+    if len(entity_assignments_df) == 0:
+        return dataframe
     dataframe = dataframe.join(
         entity_assignments_df.reset_index(drop=True).set_index('device_id'),
         on=device_id_column_name
+    )
+    return dataframe
+
+def add_tray_material_assignment_info(
+    dataframe,
+    timestamp_column_name='timestamp',
+    tray_id_column_name='tray_id',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if timestamp_column_name not in dataframe.columns:
+        raise ValueError('Dataframe does not contain specified timestamp column \'{}\''.format(
+            timestamp_column_name
+        ))
+    if tray_id_column_name not in dataframe.columns:
+        raise ValueError('Dataframe does not contain specified tray ID column \'{}\''.format(
+            tray_id_column_name
+        ))
+    start = dataframe[timestamp_column_name].min().to_pydatetime()
+    end = dataframe[timestamp_column_name].max().to_pydatetime()
+    tray_ids = list(dataframe[tray_id_column_name].unique())
+    material_assignments_df = honeycomb_io.trays.fetch_tray_material_assignments_by_tray_id(
+        tray_ids=tray_ids,
+        start=start,
+        end=end,
+        require_unique_assignment=True,
+        require_all_trays=False,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    if len(material_assignments_df) == 0:
+        return dataframe
+    dataframe = dataframe.join(
+        material_assignments_df.reset_index(drop=True).set_index('tray_id'),
+        on=tray_id_column_name
     )
     return dataframe
 

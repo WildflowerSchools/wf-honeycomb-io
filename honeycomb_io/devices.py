@@ -255,6 +255,7 @@ def fetch_device_assignments_by_device_id(
     client_id=None,
     client_secret=None
 ):
+    device_ids = list(pd.Series(device_ids).dropna())
     query_list = [
         {'field': 'assigned', 'operator': 'CONTAINED_BY', 'values': device_ids}
     ]
@@ -283,18 +284,21 @@ def fetch_device_assignments_by_device_id(
             'name'
         ]}
     ]
-    assignments = honeycomb_io.core.search_objects(
-        object_name='Assignment',
-        query_list=query_list,
-        return_data=return_data,
-        chunk_size=chunk_size,
-        client=client,
-        uri=uri,
-        token_uri=token_uri,
-        audience=audience,
-        client_id=client_id,
-        client_secret=client_secret
-    )
+    if len(device_ids) > 0:
+        assignments = honeycomb_io.core.search_objects(
+            object_name='Assignment',
+            query_list=query_list,
+            return_data=return_data,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    else:
+        assignments = []
     device_id_count = Counter([assignment.get('assigned', {}).get('device_id') for assignment in assignments])
     if require_unique_assignment:
         duplicate_device_ids = list()
@@ -321,6 +325,8 @@ def fetch_device_assignments_by_device_id(
 def generate_device_assignment_dataframe(
     assignments
 ):
+    if len(assignments) == 0:
+        assignments = [dict()]
     flat_list = list()
     for assignment in assignments:
         flat_list.append({
@@ -358,6 +364,7 @@ def fetch_device_entity_assignments_by_device_id(
     client_id=None,
     client_secret=None
 ):
+    device_ids = list(pd.Series(device_ids).dropna())
     query_list = [
         {'field': 'device', 'operator': 'CONTAINED_BY', 'values': device_ids}
     ]
@@ -399,18 +406,21 @@ def fetch_device_entity_assignments_by_device_id(
             ]},
         ]}
     ]
-    entity_assignments = honeycomb_io.core.search_objects(
-        object_name='EntityAssignment',
-        query_list=query_list,
-        return_data=return_data,
-        chunk_size=chunk_size,
-        client=client,
-        uri=uri,
-        token_uri=token_uri,
-        audience=audience,
-        client_id=client_id,
-        client_secret=client_secret
-    )
+    if len(device_ids) > 0:
+        entity_assignments = honeycomb_io.core.search_objects(
+            object_name='EntityAssignment',
+            query_list=query_list,
+            return_data=return_data,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    else:
+        entity_assignments = []
     device_id_count = Counter([entity_assignment.get('device', {}).get('device_id') for entity_assignment in entity_assignments])
     if require_unique_assignment:
         duplicate_device_ids = list()
@@ -437,6 +447,8 @@ def fetch_device_entity_assignments_by_device_id(
 def generate_device_entity_assignment_dataframe(
     entity_assignments
 ):
+    if len(entity_assignments) == 0:
+        entity_assignments = [dict()]
     flat_list = list()
     for entity_assignment in entity_assignments:
         entity_type = entity_assignment.get('entity_type')
@@ -447,7 +459,7 @@ def generate_device_entity_assignment_dataframe(
             'entity_assignment_end': pd.to_datetime(entity_assignment.get('end'), utc=True),
             'entity_type': entity_assignment.get('entity_type'),
             'tray_id': entity_assignment.get('entity', {}).get('tray_id'),
-            'tray_name': entity_assignment.get('entity', {}).get('tray_id') if entity_type == 'TRAY' else None,
+            'tray_name': entity_assignment.get('entity', {}).get('name') if entity_type == 'TRAY' else None,
             'tray_part_number': entity_assignment.get('entity', {}).get('part_number'),
             'tray_serial_number': entity_assignment.get('entity', {}).get('serial_number'),
             'person_id': entity_assignment.get('entity', {}).get('person_id'),
