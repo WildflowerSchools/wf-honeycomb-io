@@ -343,6 +343,145 @@ def generate_device_assignment_dataframe(
     df.set_index('assignment_id', inplace=True)
     return df
 
+def fetch_device_entity_assignments_by_device_id(
+    device_ids,
+    start=None,
+    end=None,
+    require_unique_assignment=True,
+    require_all_devices=False,
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    query_list = [
+        {'field': 'device', 'operator': 'CONTAINED_BY', 'values': device_ids}
+    ]
+    if start is not None:
+        query_list.append(
+            {'operator': 'OR', 'children': [
+                {'field': 'end', 'operator': 'ISNULL'},
+                {'field': 'end', 'operator': 'GTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(start)}
+            ]}
+        )
+    if end is not None:
+        query_list.append(
+            {'field': 'start', 'operator': 'LTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(end)}
+        )
+    return_data = [
+        'entity_assignment_id',
+        {'device': [
+            'device_id'
+        ]},
+        'start',
+        'end',
+        'entity_type',
+        {'entity': [
+            {'... on Tray': [
+                'tray_id',
+                'name',
+                'part_number',
+                'serial_number'
+            ]},
+            {'... on Person': [
+                'person_id',
+                'person_type',
+                'name',
+                'first_name',
+                'last_name',
+                'nickname',
+                'short_name',
+                'transparent_classroom_id'
+            ]},
+        ]}
+    ]
+    entity_assignments = honeycomb_io.core.search_objects(
+        object_name='EntityAssignment',
+        query_list=query_list,
+        return_data=return_data,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    device_id_count = Counter([entity_assignment.get('device', {}).get('device_id') for entity_assignment in entity_assignments])
+    if require_unique_assignment:
+        duplicate_device_ids = list()
+        for device_id in device_id_count.keys():
+            if device_id_count.get(device_id) > 1:
+                duplicate_device_ids.append(device_id)
+        if len(duplicate_device_ids) > 0:
+            raise ValueError('Device IDs {} have more than one assignment in the specified time period'.format(
+                duplicate_device_ids
+            ))
+    if require_unique_assignment:
+        missing_device_ids = set(device_ids) - set(device_id_count.keys())
+        if len(missing_device_ids) > 0:
+            raise ValueError('Device IDs {} have no assignments in the specified time period'.format(
+                list(missing_device_ids)
+            ))
+    if output_format =='list':
+        return entity_assignments
+    elif output_format == 'dataframe':
+        return generate_device_entity_assignment_dataframe(entity_assignments)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def generate_device_entity_assignment_dataframe(
+    entity_assignments
+):
+    flat_list = list()
+    for entity_assignment in entity_assignments:
+        entity_type = entity_assignment.get('entity_type')
+        flat_list.append({
+            'entity_assignment_id': entity_assignment.get('assignment_id'),
+            'device_id': entity_assignment.get('device', {}).get('device_id'),
+            'entity_assignment_start': pd.to_datetime(entity_assignment.get('start'), utc=True),
+            'entity_assignment_end': pd.to_datetime(entity_assignment.get('end'), utc=True),
+            'entity_type': entity_assignment.get('entity_type'),
+            'tray_id': entity_assignment.get('entity', {}).get('tray_id'),
+            'tray_name': entity_assignment.get('entity', {}).get('tray_id') if entity_type == 'TRAY' else None,
+            'tray_part_number': entity_assignment.get('entity', {}).get('part_number'),
+            'tray_serial_number': entity_assignment.get('entity', {}).get('serial_number'),
+            'person_id': entity_assignment.get('entity', {}).get('person_id'),
+            'person_type': entity_assignment.get('entity', {}).get('person_type'),
+            'person_name': entity_assignment.get('entity', {}).get('name') if entity_type == 'PERSON' else None,
+            'person_first_name': entity_assignment.get('entity', {}).get('first_name'),
+            'person_last_name': entity_assignment.get('entity', {}).get('last_name'),
+            'person_nickname': entity_assignment.get('entity', {}).get('nickname'),
+            'person_short_name': entity_assignment.get('entity', {}).get('short_name'),
+            'person_transparent_classroom_id': entity_assignment.get('entity', {}).get('transparent_classroom_id')
+        })
+    df = pd.DataFrame(flat_list, dtype='object')
+    df['entity_assignment_start'] = pd.to_datetime(df['entity_assignment_start'])
+    df['entity_assignment_end'] = pd.to_datetime(df['entity_assignment_end'])
+    df = df.astype({
+        'entity_assignment_id': 'string',
+        'device_id': 'string',
+        'entity_type': 'string',
+        'tray_id': 'string',
+        'tray_name': 'string',
+        'tray_part_number': 'string',
+        'tray_serial_number': 'string',
+        'person_id': 'string',
+        'person_type': 'string',
+        'person_name': 'string',
+        'person_first_name': 'string',
+        'person_last_name': 'string',
+        'person_nickname': 'string',
+        'person_short_name': 'string',
+        'person_transparent_classroom_id': 'Int64'
+    })
+    df.set_index('entity_assignment_id', inplace=True)
+    return df
+
 
 # Used by:
 # honeycomb_io.uwb_data
