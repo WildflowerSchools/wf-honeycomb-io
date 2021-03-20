@@ -386,8 +386,8 @@ def fetch_device_entity_assignments_by_device_id(
         ]},
         'start',
         'end',
-        'entity_type',
         {'entity': [
+            'entity_type: __typename',
             {'... on Tray': [
                 'tray_id',
                 'name',
@@ -457,7 +457,7 @@ def generate_device_entity_assignment_dataframe(
             'device_id': entity_assignment.get('device', {}).get('device_id'),
             'entity_assignment_start': pd.to_datetime(entity_assignment.get('start'), utc=True),
             'entity_assignment_end': pd.to_datetime(entity_assignment.get('end'), utc=True),
-            'entity_type': entity_assignment.get('entity_type'),
+            'entity_type': entity_assignment.get('entity', {}).get('entity_type'),
             'tray_id': entity_assignment.get('entity', {}).get('tray_id'),
             'tray_name': entity_assignment.get('entity', {}).get('name') if entity_type == 'TRAY' else None,
             'tray_part_number': entity_assignment.get('entity', {}).get('part_number'),
