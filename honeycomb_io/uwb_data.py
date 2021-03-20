@@ -635,6 +635,7 @@ def parse_raw_position_data(
                         datum['y']/POSITION_SCALE_FACTOR,
                         datum['z']/POSITION_SCALE_FACTOR
                     ],
+                    'quality': datum.get('quality'),
                     'source_type': 'MEASURED'
                 })
     except:
@@ -1025,7 +1026,8 @@ def fetch_cuwb_position_data(
                 'name'
             ]}
         ]},
-        'coordinates'
+        'coordinates',
+        'quality'
     ]
     if device_ids is not None:
         logger.info('Fetching position data for devices {} for period {} to {}'.format(
@@ -1080,7 +1082,8 @@ def generate_cuwb_position_dataframe(
             'device_name': datum.get('object', {}).get('name'),
             'x': coordinates[0],
             'y': coordinates[1],
-            'z': coordinates[2]
+            'z': coordinates[2],
+            'quality': datum.get('quality')
         })
     df = pd.DataFrame(flat_list, dtype='object')
     df['timestamp'] = pd.to_datetime(df['timestamp'])
@@ -1094,7 +1097,8 @@ def generate_cuwb_position_dataframe(
         'device_name': 'string',
         'x': 'float',
         'y': 'float',
-        'z': 'float'
+        'z': 'float',
+        'quality': 'float'
     })
     df.set_index('position_id', inplace=True)
     return df
