@@ -1508,7 +1508,7 @@ def add_device_assignment_info(
     if len(assignments_df) == 0:
         return dataframe
     dataframe = dataframe.join(
-        assignments_df.reset_index(drop=True).set_index('device_id'),
+        assignments_df.reset_index().set_index('device_id'),
         on=device_id_column_name
     )
     return dataframe
@@ -1554,7 +1554,7 @@ def add_device_entity_assignment_info(
     if len(entity_assignments_df) == 0:
         return dataframe
     dataframe = dataframe.join(
-        entity_assignments_df.reset_index(drop=True).set_index('device_id'),
+        entity_assignments_df.reset_index().set_index('device_id'),
         on=device_id_column_name
     )
     return dataframe
@@ -1600,7 +1600,7 @@ def add_tray_material_assignment_info(
     if len(material_assignments_df) == 0:
         return dataframe
     dataframe = dataframe.join(
-        material_assignments_df.reset_index(drop=True).set_index('tray_id'),
+        material_assignments_df.reset_index().set_index('tray_id'),
         on=tray_id_column_name
     )
     return dataframe
