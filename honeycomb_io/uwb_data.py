@@ -1023,7 +1023,8 @@ def fetch_cuwb_position_data(
                 'part_number',
                 'serial_number',
                 'tag_id',
-                'name'
+                'name',
+                'mac_address'
             ]}
         ]},
         'coordinates',
@@ -1080,6 +1081,7 @@ def generate_cuwb_position_dataframe(
             'device_serial_number': datum.get('object', {}).get('serial_number'),
             'device_tag_id': datum.get('object', {}).get('tag_id'),
             'device_name': datum.get('object', {}).get('name'),
+            'device_mac_address': datum.get('object', {}).get('mac_address'),
             'x': coordinates[0],
             'y': coordinates[1],
             'z': coordinates[2],
@@ -1150,7 +1152,8 @@ def fetch_cuwb_accelerometer_data(
             'part_number',
             'serial_number',
             'tag_id',
-            'name'
+            'name',
+            'mac_address'
         ]},
         'data'
     ]
@@ -1204,6 +1207,7 @@ def generate_cuwb_accelerometer_dataframe(
             'device_serial_number': datum.get('device', {}).get('serial_number'),
             'device_tag_id': datum.get('device', {}).get('tag_id'),
             'device_name': datum.get('device', {}).get('name'),
+            'device_mac_address': datum.get('device', {}).get('mac_address'),
             'x': data_field[0],
             'y': data_field[1],
             'z': data_field[2]
@@ -1271,7 +1275,8 @@ def fetch_cuwb_gyroscope_data(
             'part_number',
             'serial_number',
             'tag_id',
-            'name'
+            'name',
+            'mac_address'
         ]},
         'data'
     ]
@@ -1325,6 +1330,7 @@ def generate_cuwb_gyroscope_dataframe(
             'device_serial_number': datum.get('device', {}).get('serial_number'),
             'device_tag_id': datum.get('device', {}).get('tag_id'),
             'device_name': datum.get('device', {}).get('name'),
+            'device_mac_address': datum.get('device', {}).get('mac_address'),
             'x': data_field[0],
             'y': data_field[1],
             'z': data_field[2]
@@ -1393,7 +1399,8 @@ def fetch_cuwb_magnetometer_data(
             'part_number',
             'serial_number',
             'tag_id',
-            'name'
+            'name',
+            'mac_address'
         ]},
         'data'
     ]
@@ -1447,6 +1454,7 @@ def generate_cuwb_magnetometer_dataframe(
             'device_serial_number': datum.get('device', {}).get('serial_number'),
             'device_tag_id': datum.get('device', {}).get('tag_id'),
             'device_name': datum.get('device', {}).get('name'),
+            'device_mac_address': datum.get('device', {}).get('mac_address'),
             'x': data_field[0],
             'y': data_field[1],
             'z': data_field[2]
