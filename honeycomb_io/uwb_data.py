@@ -2,6 +2,7 @@ import honeycomb_io.core
 import honeycomb_io.utils
 import honeycomb_io.environments
 import honeycomb_io.devices
+import honeycomb_io.trays
 import honeycomb_io.materials
 import honeycomb_io.exceptions
 import minimal_honeycomb
@@ -634,6 +635,7 @@ def parse_raw_position_data(
                         datum['y']/POSITION_SCALE_FACTOR,
                         datum['z']/POSITION_SCALE_FACTOR
                     ],
+                    'quality': datum.get('quality'),
                     'source_type': 'MEASURED'
                 })
     except:
@@ -977,6 +979,7 @@ def fetch_cuwb_position_data(
     environment_id=None,
     environment_name=None,
     device_types=['UWBTAG'],
+    output_format='list',
     chunk_size=1000,
     client=None,
     uri=None,
@@ -1020,10 +1023,12 @@ def fetch_cuwb_position_data(
                 'part_number',
                 'serial_number',
                 'tag_id',
-                'name'
+                'name',
+                'mac_address'
             ]}
         ]},
-        'coordinates'
+        'coordinates',
+        'quality'
     ]
     if device_ids is not None:
         logger.info('Fetching position data for devices {} for period {} to {}'.format(
@@ -1036,7 +1041,7 @@ def fetch_cuwb_position_data(
             start.isoformat(),
             end.isoformat()
         ))
-    results = honeycomb_io.core.search_objects(
+    data = honeycomb_io.core.search_objects(
         object_name='Position',
         query_list=query_list,
         return_data=return_data,
@@ -1049,9 +1054,56 @@ def fetch_cuwb_position_data(
         client_secret=client_secret
     )
     logger.info('Fetched {} position observations'.format(
-        len(results)
+        len(data)
     ))
-    return results
+    if output_format=='list':
+        return data
+    elif output_format == 'dataframe':
+        return generate_cuwb_position_dataframe(data)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def generate_cuwb_position_dataframe(
+    data
+):
+    flat_list = list()
+    for datum in data:
+        if isinstance(datum.get('coordinates'), list) and len(datum.get('coordinates')) == 3:
+            coordinates = datum.get('coordinates')
+        else:
+            coordinates = [None, None, None]
+        flat_list.append({
+            'position_id': datum.get('position_id'),
+            'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'coordinate_space_id': datum.get('coordinate_space', {}).get('space_id'),
+            'device_id': datum.get('object', {}).get('device_id'),
+            'device_part_number': datum.get('object', {}).get('part_number'),
+            'device_serial_number': datum.get('object', {}).get('serial_number'),
+            'device_tag_id': datum.get('object', {}).get('tag_id'),
+            'device_name': datum.get('object', {}).get('name'),
+            'device_mac_address': datum.get('object', {}).get('mac_address'),
+            'x': coordinates[0],
+            'y': coordinates[1],
+            'z': coordinates[2],
+            'quality': datum.get('quality')
+        })
+    df = pd.DataFrame(flat_list, dtype='object')
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df = df.astype({
+        'position_id': 'string',
+        'coordinate_space_id': 'string',
+        'device_id': 'string',
+        'device_part_number': 'string',
+        'device_serial_number': 'string',
+        'device_tag_id': 'string',
+        'device_name': 'string',
+        'x': 'float',
+        'y': 'float',
+        'z': 'float',
+        'quality': 'float'
+    })
+    df.set_index('position_id', inplace=True)
+    return df
 
 def fetch_cuwb_accelerometer_data(
     start,
@@ -1060,6 +1112,7 @@ def fetch_cuwb_accelerometer_data(
     environment_id=None,
     environment_name=None,
     device_types=['UWBTAG'],
+    output_format='list',
     chunk_size=1000,
     client=None,
     uri=None,
@@ -1099,7 +1152,8 @@ def fetch_cuwb_accelerometer_data(
             'part_number',
             'serial_number',
             'tag_id',
-            'name'
+            'name',
+            'mac_address'
         ]},
         'data'
     ]
@@ -1114,7 +1168,7 @@ def fetch_cuwb_accelerometer_data(
             start.isoformat(),
             end.isoformat()
         ))
-    results = honeycomb_io.core.search_objects(
+    data = honeycomb_io.core.search_objects(
         object_name='AccelerometerData',
         query_list=query_list,
         return_data=return_data,
@@ -1127,9 +1181,52 @@ def fetch_cuwb_accelerometer_data(
         client_secret=client_secret
     )
     logger.info('Fetched {} accelerometer observations'.format(
-        len(results)
+        len(data)
     ))
-    return results
+    if output_format=='list':
+        return data
+    elif output_format == 'dataframe':
+        return generate_cuwb_accelerometer_dataframe(data)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def generate_cuwb_accelerometer_dataframe(
+    data
+):
+    flat_list = list()
+    for datum in data:
+        if isinstance(datum.get('data'), list) and len(datum.get('data')) == 3:
+            data_field = datum.get('data')
+        else:
+            data_field = [None, None, None]
+        flat_list.append({
+            'accelerometer_data_id': datum.get('accelerometer_data_id'),
+            'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'device_id': datum.get('device', {}).get('device_id'),
+            'device_part_number': datum.get('device', {}).get('part_number'),
+            'device_serial_number': datum.get('device', {}).get('serial_number'),
+            'device_tag_id': datum.get('device', {}).get('tag_id'),
+            'device_name': datum.get('device', {}).get('name'),
+            'device_mac_address': datum.get('device', {}).get('mac_address'),
+            'x': data_field[0],
+            'y': data_field[1],
+            'z': data_field[2]
+        })
+    df = pd.DataFrame(flat_list, dtype='object')
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df = df.astype({
+        'accelerometer_data_id': 'string',
+        'device_id': 'string',
+        'device_part_number': 'string',
+        'device_serial_number': 'string',
+        'device_tag_id': 'string',
+        'device_name': 'string',
+        'x': 'float',
+        'y': 'float',
+        'z': 'float'
+    })
+    df.set_index('accelerometer_data_id', inplace=True)
+    return df
 
 def fetch_cuwb_gyroscope_data(
     start,
@@ -1138,6 +1235,7 @@ def fetch_cuwb_gyroscope_data(
     environment_id=None,
     environment_name=None,
     device_types=['UWBTAG'],
+    output_format='list',
     chunk_size=1000,
     client=None,
     uri=None,
@@ -1177,7 +1275,8 @@ def fetch_cuwb_gyroscope_data(
             'part_number',
             'serial_number',
             'tag_id',
-            'name'
+            'name',
+            'mac_address'
         ]},
         'data'
     ]
@@ -1192,7 +1291,7 @@ def fetch_cuwb_gyroscope_data(
             start.isoformat(),
             end.isoformat()
         ))
-    results = honeycomb_io.core.search_objects(
+    data = honeycomb_io.core.search_objects(
         object_name='GyroscopeData',
         query_list=query_list,
         return_data=return_data,
@@ -1205,9 +1304,53 @@ def fetch_cuwb_gyroscope_data(
         client_secret=client_secret
     )
     logger.info('Fetched {} gyroscope observations'.format(
-        len(results)
+        len(data)
     ))
-    return results
+    if output_format=='list':
+        return data
+    elif output_format == 'dataframe':
+        return generate_cuwb_gyroscope_dataframe(data)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def generate_cuwb_gyroscope_dataframe(
+    data
+):
+    flat_list = list()
+    for datum in data:
+        if isinstance(datum.get('data'), list) and len(datum.get('data')) == 3:
+            data_field = datum.get('data')
+        else:
+            data_field = [None, None, None]
+        flat_list.append({
+            'gyroscope_data_id': datum.get('gyroscope_data_id'),
+            'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'device_id': datum.get('device', {}).get('device_id'),
+            'device_part_number': datum.get('device', {}).get('part_number'),
+            'device_serial_number': datum.get('device', {}).get('serial_number'),
+            'device_tag_id': datum.get('device', {}).get('tag_id'),
+            'device_name': datum.get('device', {}).get('name'),
+            'device_mac_address': datum.get('device', {}).get('mac_address'),
+            'x': data_field[0],
+            'y': data_field[1],
+            'z': data_field[2]
+        })
+    df = pd.DataFrame(flat_list, dtype='object')
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df = df.astype({
+        'gyroscope_data_id': 'string',
+        'device_id': 'string',
+        'device_part_number': 'string',
+        'device_serial_number': 'string',
+        'device_tag_id': 'string',
+        'device_name': 'string',
+        'x': 'float',
+        'y': 'float',
+        'z': 'float'
+    })
+    df.set_index('gyroscope_data_id', inplace=True)
+    return df
+
 
 def fetch_cuwb_magnetometer_data(
     start,
@@ -1217,6 +1360,7 @@ def fetch_cuwb_magnetometer_data(
     environment_name=None,
     device_types=['UWBTAG'],
     chunk_size=1000,
+    output_format='list',
     client=None,
     uri=None,
     token_uri=None,
@@ -1255,7 +1399,8 @@ def fetch_cuwb_magnetometer_data(
             'part_number',
             'serial_number',
             'tag_id',
-            'name'
+            'name',
+            'mac_address'
         ]},
         'data'
     ]
@@ -1270,7 +1415,7 @@ def fetch_cuwb_magnetometer_data(
             start.isoformat(),
             end.isoformat()
         ))
-    results = honeycomb_io.core.search_objects(
+    data = honeycomb_io.core.search_objects(
         object_name='MagnetometerData',
         query_list=query_list,
         return_data=return_data,
@@ -1283,9 +1428,190 @@ def fetch_cuwb_magnetometer_data(
         client_secret=client_secret
     )
     logger.info('Fetched {} magnetometer observations'.format(
-        len(results)
+        len(data)
     ))
-    return results
+    if output_format=='list':
+        return data
+    elif output_format == 'dataframe':
+        return generate_cuwb_magnetometer_dataframe(data)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def generate_cuwb_magnetometer_dataframe(
+    data
+):
+    flat_list = list()
+    for datum in data:
+        if isinstance(datum.get('data'), list) and len(datum.get('data')) == 3:
+            data_field = datum.get('data')
+        else:
+            data_field = [None, None, None]
+        flat_list.append({
+            'magnetometer_data_id': datum.get('magnetometer_data_id'),
+            'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'device_id': datum.get('device', {}).get('device_id'),
+            'device_part_number': datum.get('device', {}).get('part_number'),
+            'device_serial_number': datum.get('device', {}).get('serial_number'),
+            'device_tag_id': datum.get('device', {}).get('tag_id'),
+            'device_name': datum.get('device', {}).get('name'),
+            'device_mac_address': datum.get('device', {}).get('mac_address'),
+            'x': data_field[0],
+            'y': data_field[1],
+            'z': data_field[2]
+        })
+    df = pd.DataFrame(flat_list, dtype='object')
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df = df.astype({
+        'magnetometer_data_id': 'string',
+        'device_id': 'string',
+        'device_part_number': 'string',
+        'device_serial_number': 'string',
+        'device_tag_id': 'string',
+        'device_name': 'string',
+        'x': 'float',
+        'y': 'float',
+        'z': 'float'
+    })
+    df.set_index('magnetometer_data_id', inplace=True)
+    return df
+
+def add_device_assignment_info(
+    dataframe,
+    timestamp_column_name='timestamp',
+    device_id_column_name='device_id',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if timestamp_column_name not in dataframe.columns:
+        raise ValueError('Dataframe does not contain specified timestamp column \'{}\''.format(
+            timestamp_column_name
+        ))
+    if device_id_column_name not in dataframe.columns:
+        raise ValueError('Dataframe does not contain specified device ID column \'{}\''.format(
+            device_id_column_name
+        ))
+    start = dataframe[timestamp_column_name].min().to_pydatetime()
+    end = dataframe[timestamp_column_name].max().to_pydatetime()
+    device_ids = list(dataframe[device_id_column_name].unique())
+    assignments_df = honeycomb_io.devices.fetch_device_assignments_by_device_id(
+        device_ids=device_ids,
+        start=start,
+        end=end,
+        require_unique_assignment=True,
+        require_all_devices=True,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    if len(assignments_df) == 0:
+        return dataframe
+    dataframe = dataframe.join(
+        assignments_df.reset_index().set_index('device_id'),
+        on=device_id_column_name
+    )
+    return dataframe
+
+def add_device_entity_assignment_info(
+    dataframe,
+    timestamp_column_name='timestamp',
+    device_id_column_name='device_id',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if timestamp_column_name not in dataframe.columns:
+        raise ValueError('Dataframe does not contain specified timestamp column \'{}\''.format(
+            timestamp_column_name
+        ))
+    if device_id_column_name not in dataframe.columns:
+        raise ValueError('Dataframe does not contain specified device ID column \'{}\''.format(
+            device_id_column_name
+        ))
+    start = dataframe[timestamp_column_name].min().to_pydatetime()
+    end = dataframe[timestamp_column_name].max().to_pydatetime()
+    device_ids = list(dataframe[device_id_column_name].unique())
+    entity_assignments_df = honeycomb_io.devices.fetch_device_entity_assignments_by_device_id(
+        device_ids=device_ids,
+        start=start,
+        end=end,
+        require_unique_assignment=True,
+        require_all_devices=False,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    if len(entity_assignments_df) == 0:
+        return dataframe
+    dataframe = dataframe.join(
+        entity_assignments_df.reset_index().set_index('device_id'),
+        on=device_id_column_name
+    )
+    return dataframe
+
+def add_tray_material_assignment_info(
+    dataframe,
+    timestamp_column_name='timestamp',
+    tray_id_column_name='tray_id',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if timestamp_column_name not in dataframe.columns:
+        raise ValueError('Dataframe does not contain specified timestamp column \'{}\''.format(
+            timestamp_column_name
+        ))
+    if tray_id_column_name not in dataframe.columns:
+        raise ValueError('Dataframe does not contain specified tray ID column \'{}\''.format(
+            tray_id_column_name
+        ))
+    start = dataframe[timestamp_column_name].min().to_pydatetime()
+    end = dataframe[timestamp_column_name].max().to_pydatetime()
+    tray_ids = list(dataframe[tray_id_column_name].unique())
+    material_assignments_df = honeycomb_io.trays.fetch_tray_material_assignments_by_tray_id(
+        tray_ids=tray_ids,
+        start=start,
+        end=end,
+        require_unique_assignment=True,
+        require_all_trays=False,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    if len(material_assignments_df) == 0:
+        return dataframe
+    dataframe = dataframe.join(
+        material_assignments_df.reset_index().set_index('tray_id'),
+        on=tray_id_column_name
+    )
+    return dataframe
 
 # Used by:
 # process_cuwb_data.core (wf-process-cuwb-data)
