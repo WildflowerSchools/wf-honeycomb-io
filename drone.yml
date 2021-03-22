@@ -1,0 +1,22 @@
+kind: pipeline
+type: kubernetes
+name: drone
+service_account_name: default
+
+metadata:
+  namespace: drone
+
+steps:
+- name: pypi_publish
+  image: plugins/pypi
+  settings:
+    username:
+      from_secret: pypi_username
+    password:
+      from_secret: pypi_password
+  when:
+    branch:
+    - master
+    event:
+      exclude:
+      - pull_request
