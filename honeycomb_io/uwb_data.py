@@ -1615,7 +1615,7 @@ def add_tray_material_assignment_info(
 
 def fetch_tag_info(
     environment_id=None,
-    environment_name='greenbrier',
+    environment_name=None,
     start=None,
     end=None,
     chunk_size=100,
