@@ -56,3 +56,14 @@ def extract_honeycomb_id(string):
     if m:
         id = m.group('id')
     return id
+
+def minutes_elapsed(
+    begin,
+    end
+):
+    if pd.notnull(begin) and pd.notnull(end):
+        begin = pd.to_datetime(begin, utc=True).to_pydatetime()
+        end = pd.to_datetime(end, utc=True).to_pydatetime()
+        minutes_elapsed = (end - begin).total_seconds()/60
+        return minutes_elapsed
+    return None

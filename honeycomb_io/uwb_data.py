@@ -1485,7 +1485,6 @@ def fetch_tag_status(
     audience=None,
     client_id=None,
     client_secret=None
-
 ):
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     tag_info_df = fetch_tag_info(
@@ -1586,29 +1585,18 @@ def fetch_tag_status(
         )
     )
     tag_status_df['position_minutes_ago'] = tag_status_df['position_latest_timestamp'].apply(
-        lambda timestamp: minutes_elapsed(timestamp, now)
+        lambda timestamp: honeycomb_io.utils.minutes_elapsed(timestamp, now)
     )
     tag_status_df['accelerometer_minutes_ago'] = tag_status_df['accelerometer_latest_timestamp'].apply(
-        lambda timestamp: minutes_elapsed(timestamp, now)
+        lambda timestamp: honeycomb_io.utils.minutes_elapsed(timestamp, now)
     )
     tag_status_df['gyroscope_minutes_ago'] = tag_status_df['gyroscope_latest_timestamp'].apply(
-        lambda timestamp: minutes_elapsed(timestamp, now)
+        lambda timestamp: honeycomb_io.utils.minutes_elapsed(timestamp, now)
     )
     tag_status_df['magnetometer_minutes_ago'] = tag_status_df['magnetometer_latest_timestamp'].apply(
-        lambda timestamp: minutes_elapsed(timestamp, now)
+        lambda timestamp: honeycomb_io.utils.minutes_elapsed(timestamp, now)
     )
     return tag_status_df
-
-def minutes_elapsed(
-    begin,
-    end
-):
-    if pd.notnull(begin) and pd.notnull(end):
-        begin = pd.to_datetime(begin, utc=True).to_pydatetime()
-        end = pd.to_datetime(end, utc=True).to_pydatetime()
-        minutes_elapsed = (end - begin).total_seconds()/60
-        return minutes_elapsed
-    return None
 
 def fetch_latest_cuwb_position_data(
     device_ids=None,
@@ -2069,10 +2057,10 @@ def fetch_tag_info(
 ):
     devices_df = honeycomb_io.devices.fetch_devices(
         device_types=['UWBTAG'],
-        environment_id=None,
+        environment_id=environment_id,
         environment_name=environment_name,
         start=start,
-        end=start,
+        end=end,
         output_format='dataframe',
         chunk_size=chunk_size,
         client=client,
@@ -2086,7 +2074,7 @@ def fetch_tag_info(
     device_assignments_df = honeycomb_io.devices.fetch_device_assignments_by_device_id(
         device_ids=device_ids,
         start=start,
-        end=start,
+        end=end,
         require_unique_assignment=True,
         require_all_devices=False,
         output_format='dataframe',
