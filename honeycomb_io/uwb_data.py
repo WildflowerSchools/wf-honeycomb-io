@@ -1475,6 +1475,141 @@ def generate_cuwb_magnetometer_dataframe(
     df.set_index('magnetometer_data_id', inplace=True)
     return df
 
+def fetch_tag_status(
+    environment_id=None,
+    environment_name=None,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+
+):
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    tag_info_df = fetch_tag_info(
+        environment_id=environment_id,
+        environment_name=environment_name,
+        start=now,
+        end=now,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    device_ids = list(tag_info_df.index)
+    position_latest_df = fetch_latest_cuwb_position_data(
+        device_ids=device_ids,
+        environment_id=None,
+        environment_name=None,
+        device_types=['UWBTAG'],
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    accelerometer_latest_df = fetch_latest_cuwb_accelerometer_data(
+        device_ids=device_ids,
+        environment_id=None,
+        environment_name=None,
+        device_types=['UWBTAG'],
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    gyroscope_latest_df = fetch_latest_cuwb_gyroscope_data(
+        device_ids=device_ids,
+        environment_id=None,
+        environment_name=None,
+        device_types=['UWBTAG'],
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    magnetometer_latest_df = fetch_latest_cuwb_magnetometer_data(
+        device_ids=device_ids,
+        environment_id=None,
+        environment_name=None,
+        device_types=['UWBTAG'],
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    tag_status_df = (
+        tag_info_df
+        .join(
+            position_latest_df
+            .set_index('device_id')
+            .loc[:, ['timestamp']]
+            .rename(columns={'timestamp': 'position_latest_timestamp'})
+        )
+        .join(
+            accelerometer_latest_df
+            .set_index('device_id')
+            .loc[:, ['timestamp']]
+            .rename(columns={'timestamp': 'accelerometer_latest_timestamp'})
+        )
+        .join(
+            gyroscope_latest_df
+            .set_index('device_id')
+            .loc[:, ['timestamp']]
+            .rename(columns={'timestamp': 'gyroscope_latest_timestamp'})
+        )
+        .join(
+            magnetometer_latest_df
+            .set_index('device_id')
+            .loc[:, ['timestamp']]
+            .rename(columns={'timestamp': 'magnetometer_latest_timestamp'})
+        )
+    )
+    tag_status_df['position_minutes_ago'] = tag_status_df['position_latest_timestamp'].apply(
+        lambda timestamp: minutes_elapsed(timestamp, now)
+    )
+    tag_status_df['accelerometer_minutes_ago'] = tag_status_df['accelerometer_latest_timestamp'].apply(
+        lambda timestamp: minutes_elapsed(timestamp, now)
+    )
+    tag_status_df['gyroscope_minutes_ago'] = tag_status_df['gyroscope_latest_timestamp'].apply(
+        lambda timestamp: minutes_elapsed(timestamp, now)
+    )
+    tag_status_df['magnetometer_minutes_ago'] = tag_status_df['magnetometer_latest_timestamp'].apply(
+        lambda timestamp: minutes_elapsed(timestamp, now)
+    )
+    return tag_status_df
+
+def minutes_elapsed(
+    begin,
+    end
+):
+    if pd.notnull(begin) and pd.notnull(end):
+        begin = pd.to_datetime(begin, utc=True).to_pydatetime()
+        end = pd.to_datetime(end, utc=True).to_pydatetime()
+        minutes_elapsed = (end - begin).total_seconds()/60
+        return minutes_elapsed
+    return None
+
 def fetch_latest_cuwb_position_data(
     device_ids=None,
     environment_id=None,
