@@ -1475,6 +1475,87 @@ def generate_cuwb_magnetometer_dataframe(
     df.set_index('magnetometer_data_id', inplace=True)
     return df
 
+def fetch_latest_cuwb_position_data(
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    if device_ids is None:
+        device_ids = honeycomb_io.devices.fetch_device_ids(
+            device_types=device_types,
+            environment_id=environment_id,
+            environment_name=environment_name,
+            start=now,
+            end=now,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    logger.info('Fetching latest position data for devices {}'.format(
+        device_ids
+    ))
+    return_data = [
+        'position_id',
+        'timestamp',
+        {'coordinate_space': [
+            'space_id'
+        ]},
+        {'object': [
+            {'... on Device': [
+                'device_id',
+                'part_number',
+                'serial_number',
+                'tag_id',
+                'name',
+                'mac_address'
+            ]}
+        ]},
+        'coordinates',
+        'quality'
+    ]
+    data = list()
+    for device_id in device_ids:
+        query_list=[
+            {'field': 'object', 'operator': 'EQ', 'value': device_id}
+        ]
+        datum=honeycomb_io.core.fetch_latest_object(
+            object_name='Position',
+            query_list=query_list,
+            return_data=return_data,
+            request_name=None,
+            id_field_name=None,
+            timestamp_field='timestamp',
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        if datum is not None:
+            data.append(datum)
+    if output_format=='list':
+        return data
+    elif output_format == 'dataframe':
+        return generate_cuwb_position_dataframe(data)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
 def add_device_assignment_info(
     dataframe,
     timestamp_column_name='timestamp',
