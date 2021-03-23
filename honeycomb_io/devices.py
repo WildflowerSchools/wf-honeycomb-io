@@ -59,6 +59,7 @@ def fetch_devices(
     environment_name=None,
     start=None,
     end=None,
+    output_format='list',
     chunk_size=100,
     client=None,
     uri=None,
@@ -147,98 +148,124 @@ def fetch_devices(
         logger.info('Found {} devices with specified assignment characteristics'.format(
             len(filtered_devices)
         ))
-        return filtered_devices
-    # No device characteristics were specified, so we search assignments instead
-    if environment_id is None:
-        if environment_name is not None:
-            logger.info('Fetching environment ID for environment name \'{}\''.format(
-                environment_name
-            ))
-            environment_id = honeycomb_io.fetch_environment_id(
-                environment_name=environment_name,
-                client=None,
-                uri=None,
-                token_uri=None,
-                audience=None,
-                client_id=None,
-                client_secret=None
+        return_list = filtered_devices
+    else:
+        # No device characteristics were specified, so we search assignments instead
+        if environment_id is None:
+            if environment_name is not None:
+                logger.info('Fetching environment ID for environment name \'{}\''.format(
+                    environment_name
+                ))
+                environment_id = honeycomb_io.fetch_environment_id(
+                    environment_name=environment_name,
+                    client=None,
+                    uri=None,
+                    token_uri=None,
+                    audience=None,
+                    client_id=None,
+                    client_secret=None
+                )
+        query_list = list()
+        if environment_id is not None:
+            query_list.append(
+                {'field': 'environment', 'operator': 'EQ', 'value': environment_id}
             )
-    query_list = list()
-    if environment_id is not None:
+        if start is not None:
+            query_list.append(
+                {'operator': 'OR', 'children': [
+                    {'field': 'end', 'operator': 'ISNULL'},
+                    {'field': 'end', 'operator': 'GTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(start)}
+                ]}
+            )
+        if end is not None:
+            query_list.append(
+                {'field': 'start', 'operator': 'LTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(end)}
+            )
+        if query_list is None:
+            logger.warn('No criteria specified for device search. Returning no devices')
+            return list()
         query_list.append(
-            {'field': 'environment', 'operator': 'EQ', 'value': environment_id}
+            {'field': 'assigned_type', 'operator': 'EQ', 'value': 'DEVICE'}
         )
-    if start is not None:
-        query_list.append(
-            {'operator': 'OR', 'children': [
-                {'field': 'end', 'operator': 'ISNULL'},
-                {'field': 'end', 'operator': 'GTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(start)}
-            ]}
-        )
-    if end is not None:
-        query_list.append(
-            {'field': 'start', 'operator': 'LTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(end)}
-        )
-    if query_list is None:
-        logger.warn('No criteria specified for device search. Returning no devices')
-        return list()
-    query_list.append(
-        {'field': 'assigned_type', 'operator': 'EQ', 'value': 'DEVICE'}
-    )
-    return_data=[
-        'assignment_id',
-        'start',
-        'end',
-        {'environment': [
-            'environment_id'
-            'name'
-        ]},
-        {'assigned': [
-            {'... on Device': [
-                'device_id',
-                'device_type',
-                'part_number',
-                'serial_number',
-                'tag_id',
+        return_data=[
+            'assignment_id',
+            'start',
+            'end',
+            {'environment': [
+                'environment_id'
                 'name'
+            ]},
+            {'assigned': [
+                {'... on Device': [
+                    'device_id',
+                    'device_type',
+                    'part_number',
+                    'serial_number',
+                    'tag_id',
+                    'name'
+                ]}
             ]}
-        ]}
-    ]
-    assignments = search_objects(
-        object_name='Assignment',
-        query_list=query_list,
-        return_data=return_data,
-        chunk_size=chunk_size,
-        client=client,
-        uri=uri,
-        token_uri=token_uri,
-        audience=audience,
-        client_id=client_id,
-        client_secret=client_secret
-    )
-    device_dict = dict()
-    for assignment in assignments:
-        device_id = assignment.get('assigned').get('device_id')
-        if assignment.get('assigned').get('device_id') not in device_dict.keys():
-            device = assignment.get('assigned')
-            assignment = {
-                'assignment_id': assignment.get('assignment_id'),
-                'start': assignment.get('start'),
-                'end': assignment.get('end'),
-                'environment': assignment.get('environment')
-            }
-            device['assignments'] = [assignment]
-            device_dict[device_id] = device
-        else:
-            assignment = {
-                'assignment_id': assignment.get('assignment_id'),
-                'start': assignment.get('start'),
-                'end': assignment.get('end'),
-                'environment': assignment.get('environment')
-            }
-            device_dict[device_id]['assignments'].append(assignment)
-    devices = list(device_dict.values())
-    return devices
+        ]
+        assignments = search_objects(
+            object_name='Assignment',
+            query_list=query_list,
+            return_data=return_data,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        device_dict = dict()
+        for assignment in assignments:
+            device_id = assignment.get('assigned').get('device_id')
+            if assignment.get('assigned').get('device_id') not in device_dict.keys():
+                device = assignment.get('assigned')
+                assignment = {
+                    'assignment_id': assignment.get('assignment_id'),
+                    'start': assignment.get('start'),
+                    'end': assignment.get('end'),
+                    'environment': assignment.get('environment')
+                }
+                device['assignments'] = [assignment]
+                device_dict[device_id] = device
+            else:
+                assignment = {
+                    'assignment_id': assignment.get('assignment_id'),
+                    'start': assignment.get('start'),
+                    'end': assignment.get('end'),
+                    'environment': assignment.get('environment')
+                }
+                device_dict[device_id]['assignments'].append(assignment)
+        devices = list(device_dict.values())
+        return_list = devices
+    if output_format =='list':
+        return return_list
+    elif output_format == 'dataframe':
+        return generate_device_dataframe(return_list)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def generate_device_dataframe(
+    devices
+):
+    if len(devices) == 0:
+        devices = [dict()]
+    flat_list = list()
+    for device in devices:
+        flat_list.append({
+            'device_id': device.get('device_id'),
+            'device_type': device.get('device_type'),
+            'device_part_number': device.get('part_number'),
+            'device_serial_number': device.get('serial_number'),
+            'device_tag_id': device.get('tag_id'),
+            'device_name': device.get('name')
+        })
+    df = pd.DataFrame(flat_list, dtype='string')
+    df.set_index('device_id', inplace=True)
+    return df
 
 def fetch_device_assignments_by_device_id(
     device_ids,
