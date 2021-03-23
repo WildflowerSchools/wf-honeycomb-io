@@ -164,7 +164,7 @@ def search_objects(
         logger.warn('No query specified')
         data = list()
         return data
-    if query_list is None:
+    if return_data is None:
         logger.warn('No return data specified')
         data = list()
         return data
