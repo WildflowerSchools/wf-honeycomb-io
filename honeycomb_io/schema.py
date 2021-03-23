@@ -1,6 +1,9 @@
 import inflection
 
 SCHEMA = {
+    'Assignment': {
+        'create_endpoint_name': 'assignToEnvironment'
+    },
     'Datapoint': {
         'id_field_name': 'data_id'
     },
