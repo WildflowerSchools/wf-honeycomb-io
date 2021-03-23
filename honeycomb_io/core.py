@@ -124,13 +124,6 @@ def update_objects(
         client_id=client_id,
         client_secret=client_secret
     )
-    print(request_name)
-    print(id_field_name)
-    print(ids)
-    print(argument_name)
-    print(argument_type)
-    print(data_list)
-    print(data_fields)
     result = client.bulk_mutation(
         request_name=request_name,
         arguments = {
