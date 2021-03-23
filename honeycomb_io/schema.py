@@ -4,6 +4,12 @@ SCHEMA = {
     'Assignment': {
         'create_endpoint_name': 'assignToEnvironment'
     },
+    'EntityAssignment': {
+        'create_endpoint_name': 'assignToEntity'
+    },
+    'MaterialAssignment': {
+        'create_endpoint_name': 'assignToMaterial'
+    },
     'Datapoint': {
         'id_field_name': 'data_id'
     },
