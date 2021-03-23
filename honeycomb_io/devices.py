@@ -309,7 +309,7 @@ def fetch_device_assignments_by_device_id(
             raise ValueError('Device IDs {} have more than one assignment in the specified time period'.format(
                 duplicate_device_ids
             ))
-    if require_unique_assignment:
+    if require_all_devices:
         missing_device_ids = set(device_ids) - set(device_id_count.keys())
         if len(missing_device_ids) > 0:
             raise ValueError('Device IDs {} have no assignments in the specified time period'.format(
@@ -431,7 +431,7 @@ def fetch_device_entity_assignments_by_device_id(
             raise ValueError('Device IDs {} have more than one assignment in the specified time period'.format(
                 duplicate_device_ids
             ))
-    if require_unique_assignment:
+    if require_all_devices:
         missing_device_ids = set(device_ids) - set(device_id_count.keys())
         if len(missing_device_ids) > 0:
             raise ValueError('Device IDs {} have no assignments in the specified time period'.format(
@@ -453,7 +453,7 @@ def generate_device_entity_assignment_dataframe(
     for entity_assignment in entity_assignments:
         entity_type = entity_assignment.get('entity_type')
         flat_list.append({
-            'entity_assignment_id': entity_assignment.get('assignment_id'),
+            'entity_assignment_id': entity_assignment.get('entity_assignment_id'),
             'device_id': entity_assignment.get('device', {}).get('device_id'),
             'entity_assignment_start': pd.to_datetime(entity_assignment.get('start'), utc=True),
             'entity_assignment_end': pd.to_datetime(entity_assignment.get('end'), utc=True),
