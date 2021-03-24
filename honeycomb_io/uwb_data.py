@@ -2507,6 +2507,72 @@ def fetch_material_tray_devices_assignments(environment_id, start_time, end_time
     df = pd.DataFrame.from_dict(records, orient='index')
     return df
 
+def fetch_data_lists_data_id(
+    data_id,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    client = honeycomb_io.core.generate_client(
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    result=client.request(
+        request_type='query',
+        request_name='getDatapoint',
+        arguments={
+            'data_id': {
+                'type': 'ID!',
+                'value': data_id
+            }
+        },
+        return_object = [
+            'timestamp',
+            {'source': [
+                {'... on Assignment': [
+                    'assignment_id'
+                ]}
+            ]},
+            {'file': [
+                'data'
+            ]}
+        ]
+    )
+    data_jsonl_json = result.get('file', {}).get('data')
+    if data_jsonl_json is None:
+        logger.warn('No UWB data returned')
+        return []
+    try:
+        data_jsonl = json.loads(data_jsonl_json)
+    except:
+        raise ValueError('Expected JSONL wrapped as JSON, but JSON deserialization failed')
+    if not isinstance(data_jsonl, str):
+        raise ValueError('Expected JSONL but got type \'{}\''.format(type(data_jsonl)))
+    data_lists = dict()
+    for data_jsonl_line in data_jsonl.split('\n'):
+        if len(data_jsonl_line) == 0:
+            continue
+        try:
+            datum = json.loads(data_jsonl_line)
+            data_type = datum.get('type')
+            if data_type in SUPPORTED_CUWB_DATA_TYPES:
+                if data_type not in data_lists.keys():
+                    data_lists[data_type] = list()
+                data_lists[data_type].append(datum)
+        except:
+            logger.warn('Encountered malformed JSONL line. Omitting: {}'.format(
+                data_jsonl_line
+            ))
+            continue
+    return data_lists
+
 # Used by:
 # process_pose_data.process (wf-process-pose-data)
 def fetch_uwb_data_data_id(
