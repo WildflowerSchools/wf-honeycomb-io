@@ -11,6 +11,7 @@ import numpy as np
 import datetime
 import json
 import os
+import gzip
 import logging
 
 # from process_cuwb_data.utils.log import logger
@@ -2643,6 +2644,9 @@ def create_bulk_import_file_local_data_id(
     device_types=['UWBTAG'],
     coordinate_space_id=None,
     device_id_lookup=None,
+    compress_file=True,
+    upload_to_s3=False,
+    delete_local_file=False,
     chunk_size=100,
     client=None,
     uri=None,
@@ -2680,10 +2684,16 @@ def create_bulk_import_file_local_data_id(
         base_directory,
         environment_name
     )
-    filename = 'datapoint_{}_{}.json'.format(
-        timestamp.strftime('%Y%m%d_%H%M%S'),
-        data_id
-    )
+    if compress_file:
+        filename = 'datapoint_{}_{}.json.gz'.format(
+            timestamp.strftime('%Y%m%d_%H%M%S'),
+            data_id
+        )
+    else:
+        filename = 'datapoint_{}_{}.json'.format(
+            timestamp.strftime('%Y%m%d_%H%M%S'),
+            data_id
+        )
     output_path = os.path.join(
         output_directory,
         filename
@@ -2692,8 +2702,16 @@ def create_bulk_import_file_local_data_id(
     logger.info('Creating file {}'.format(
         output_path
     ))
-    with open(output_path, 'w') as fp:
-        json.dump(parsed_data_lists, fp)
+    if compress_file:
+        with gzip.open(output_path, 'wt') as fp:
+            json.dump(parsed_data_lists, fp)
+    else:
+        with open(output_path, 'w') as fp:
+            json.dump(parsed_data_lists, fp)
+    if upload_to_s3:
+        pass
+    if delete_local_file:
+        pass
     return output_path
 
 def fetch_data_lists_data_id(
