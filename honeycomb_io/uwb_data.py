@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import datetime
 import json
+import os
 import logging
 
 # from process_cuwb_data.utils.log import logger
@@ -2506,6 +2507,50 @@ def fetch_material_tray_devices_assignments(environment_id, start_time, end_time
 
     df = pd.DataFrame.from_dict(records, orient='index')
     return df
+
+def create_bulk_import_file_local_data_id(
+    data_id,
+    output_directory,
+    device_types=['UWBTAG'],
+    coordinate_space_id=None,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    raw_data_lists = fetch_data_lists_data_id(
+        data_id=data_id,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    parsed_data_lists = raw_cuwb_data_lists_to_parsed(
+        raw_data_lists=raw_data_lists,
+        device_types=device_types,
+        coordinate_space_id=coordinate_space_id,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    filename = 'bulk_import_{}.json'.format(data_id)
+    os.makedirs(output_directory, exist_ok=True)
+    output_path = os.path.join(
+        output_directory,
+        filename
+    )
+    with open(output_path, 'w') as fp:
+        json.dump(parsed_data_lists, fp)
+    return output_path
 
 def fetch_data_lists_data_id(
     data_id,
