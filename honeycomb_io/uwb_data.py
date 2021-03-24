@@ -2542,6 +2542,9 @@ def create_bulk_import_file_local_data_id(
         client_id=client_id,
         client_secret=client_secret
     )
+    if len(parsed_data_lists) == 0:
+        logger.warning('No data of supported types found in datapoint')
+        return None
     filename = 'bulk_import_{}.json'.format(data_id)
     os.makedirs(output_directory, exist_ok=True)
     output_path = os.path.join(
