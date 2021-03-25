@@ -990,6 +990,7 @@ def fetch_cuwb_position_data(
     environment_name=None,
     device_types=['UWBTAG'],
     output_format='list',
+    sort_arguments=None,
     chunk_size=1000,
     client=None,
     uri=None,
@@ -1040,10 +1041,6 @@ def fetch_cuwb_position_data(
         'coordinates',
         'quality'
     ]
-    sort_arguments = {
-        'field': 'timestamp',
-        'direction': 'ASC'
-    }
     if device_ids is not None:
         logger.info('Fetching position data for devices {} for period {} to {}'.format(
             device_ids,
@@ -1128,6 +1125,7 @@ def fetch_cuwb_accelerometer_data(
     environment_name=None,
     device_types=['UWBTAG'],
     output_format='list',
+    sort_arguments=None,
     chunk_size=1000,
     client=None,
     uri=None,
@@ -1188,6 +1186,7 @@ def fetch_cuwb_accelerometer_data(
         query_list=query_list,
         return_data=return_data,
         chunk_size=chunk_size,
+        sort_arguments=sort_arguments,
         client=client,
         uri=uri,
         token_uri=token_uri,
@@ -1251,6 +1250,7 @@ def fetch_cuwb_gyroscope_data(
     environment_name=None,
     device_types=['UWBTAG'],
     output_format='list',
+    sort_arguments=None,
     chunk_size=1000,
     client=None,
     uri=None,
@@ -1311,6 +1311,7 @@ def fetch_cuwb_gyroscope_data(
         query_list=query_list,
         return_data=return_data,
         chunk_size=chunk_size,
+        sort_arguments=sort_arguments,
         client=client,
         uri=uri,
         token_uri=token_uri,
@@ -1374,6 +1375,7 @@ def fetch_cuwb_magnetometer_data(
     environment_id=None,
     environment_name=None,
     device_types=['UWBTAG'],
+    sort_arguments=None,
     chunk_size=1000,
     output_format='list',
     client=None,
@@ -1435,6 +1437,7 @@ def fetch_cuwb_magnetometer_data(
         query_list=query_list,
         return_data=return_data,
         chunk_size=chunk_size,
+        sort_arguments=sort_arguments,
         client=client,
         uri=uri,
         token_uri=token_uri,
