@@ -1040,6 +1040,10 @@ def fetch_cuwb_position_data(
         'coordinates',
         'quality'
     ]
+    sort_arguments = {
+        'field': 'timestamp',
+        'direction': 'ASC'
+    }
     if device_ids is not None:
         logger.info('Fetching position data for devices {} for period {} to {}'.format(
             device_ids,
@@ -1056,6 +1060,7 @@ def fetch_cuwb_position_data(
         query_list=query_list,
         return_data=return_data,
         chunk_size=chunk_size,
+        sort_arguments=sort_arguments,
         client=client,
         uri=uri,
         token_uri=token_uri,
