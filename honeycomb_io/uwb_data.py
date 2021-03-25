@@ -8,10 +8,14 @@ import honeycomb_io.exceptions
 import minimal_honeycomb
 import pandas as pd
 import numpy as np
+import boto3
+from botocore.exceptions import ClientError
 import datetime
 import json
+import io
 import os
 import gzip
+import threading
 import logging
 
 # from process_cuwb_data.utils.log import logger
@@ -2513,14 +2517,17 @@ def fetch_material_tray_devices_assignments(environment_id, start_time, end_time
     df = pd.DataFrame.from_dict(records, orient='index')
     return df
 
-def create_bulk_import_files_local(
+def create_bulk_import_files(
     datapoint_timestamp_min,
     datapoint_timestamp_max,
-    base_directory,
     device_ids=None,
     environment_id=None,
     environment_name=None,
     device_types=['UWBTAG'],
+    compress_file=True,
+    output_destination='local',
+    local_base_directory=None,
+    s3_bucket=None,
     chunk_size=1000,
     client=None,
     uri=None,
@@ -2543,7 +2550,7 @@ def create_bulk_import_files_local(
         end=datapoint_timestamp_max,
         output_format='dataframe',
         chunk_size=chunk_size,
-        client=None,
+        client=client,
         uri=uri,
         token_uri=token_uri,
         audience=audience,
@@ -2613,18 +2620,21 @@ def create_bulk_import_files_local(
     logger.info('Found {} datapoints consistent with specified parameters'.format(
         len(data_ids)
     ))
-    local_paths = list()
+    paths = list()
     logger.info('Creating bulk import files')
     for data_id in data_ids:
         logger.info('Creating bulk import file for datapoint {}'.format(
             data_id
         ))
-        local_path = create_bulk_import_file_local_data_id(
+        path = create_bulk_import_file_data_id(
             data_id=data_id,
-            base_directory=base_directory,
             device_types=device_types,
             coordinate_space_id=coordinate_space_id,
             device_id_lookup=device_id_lookup,
+            compress_file=compress_file,
+            output_destination=output_destination,
+            local_base_directory=local_base_directory,
+            s3_bucket=s3_bucket,
             chunk_size=chunk_size,
             client=client,
             uri=uri,
@@ -2633,20 +2643,20 @@ def create_bulk_import_files_local(
             client_id=client_id,
             client_secret=client_secret
         )
-        if local_path is not None:
-            local_paths.append(local_path)
-    return local_paths
+        if path is not None:
+            paths.append(path)
+    return paths
 
 
-def create_bulk_import_file_local_data_id(
+def create_bulk_import_file_data_id(
     data_id,
-    base_directory,
     device_types=['UWBTAG'],
     coordinate_space_id=None,
     device_id_lookup=None,
     compress_file=True,
-    upload_to_s3=False,
-    delete_local_file=False,
+    output_destination='local',
+    local_base_directory=None,
+    s3_bucket=None,
     chunk_size=100,
     client=None,
     uri=None,
@@ -2680,9 +2690,11 @@ def create_bulk_import_file_local_data_id(
     if len(parsed_data_lists) == 0:
         logger.warning('No data of supported types found in datapoint')
         return None
-    output_directory = os.path.join(
-        base_directory,
-        environment_name
+    directory_path = os.path.join(
+        environment_name,
+        timestamp.strftime('%Y'),
+        timestamp.strftime('%m'),
+        timestamp.strftime('%d'),
     )
     if compress_file:
         filename = 'datapoint_{}_{}.json.gz'.format(
@@ -2694,25 +2706,77 @@ def create_bulk_import_file_local_data_id(
             timestamp.strftime('%Y%m%d_%H%M%S'),
             data_id
         )
-    output_path = os.path.join(
-        output_directory,
-        filename
-    )
-    os.makedirs(output_directory, exist_ok=True)
-    logger.info('Creating file {}'.format(
-        output_path
-    ))
-    if compress_file:
-        with gzip.open(output_path, 'wt') as fp:
-            json.dump(parsed_data_lists, fp)
+    if output_destination == 'local':
+        if local_base_directory is None:
+            raise ValueError('Must specify local base directory for local output')
+        output_directory = os.path.join(
+            local_base_directory,
+            directory_path
+        )
+        output_path = os.path.join(
+            output_directory,
+            filename
+        )
+        os.makedirs(output_directory, exist_ok=True)
+        logger.info('Creating local file {}'.format(
+            output_path
+        ))
+        if compress_file:
+            with gzip.open(output_path, 'wt') as fp:
+                json.dump(parsed_data_lists, fp)
+        else:
+            with open(output_path, 'w') as fp:
+                json.dump(parsed_data_lists, fp)
+        return output_path
+    elif output_destination == 's3':
+        if s3_bucket is None:
+            return ValueError('Must specify S3 bucket for S3 output')
+        s3_key = os.path.join(
+            directory_path,
+            filename
+        )
+        s3_url = 's3://{}'.format(
+            os.path.join(
+                s3_bucket,
+                s3_key
+            )
+        )
+        s3 = boto3.client('s3')
+        with io.BytesIO(bytes(json.dumps(parsed_data_lists).encode('UTF-8'))) as file_stream:
+            if compress_file:
+                def log_upload_update(bytes):
+                    logger.info('Uploading {}: thread id = {}, bytes uploaded={}'.format(
+                        s3_key,
+                        threading.current_thread().ident,
+                        bytes
+                    ))
+                compressed_stream = io.BytesIO()
+                with gzip.GzipFile(fileobj=compressed_stream, mode='w') as gzip_stream:
+                    gzip_stream.write(file_stream.read())
+                compressed_stream.seek(0)
+                logger.info('Sending compressed stream to S3 with bucket \'{}\' and key \'{}\''.format(
+                    s3_bucket,
+                    s3_key
+                ))
+                s3.upload_fileobj(
+                    compressed_stream,
+                    s3_bucket,
+                    s3_key,
+                    Config=boto3.s3.transfer.TransferConfig(use_threads=True),
+                    Callback=log_upload_update
+                )
+                return s3_url
+            else:
+                logger.info('Sending uncompressed stream to S3 with bucket \'{}\' and key \'{}\''.format(
+                    s3_bucket,
+                    s3_key
+                ))
+                s3.upload_fileobj(file_stream, s3_bucket, s3_key)
+                return s3_url
     else:
-        with open(output_path, 'w') as fp:
-            json.dump(parsed_data_lists, fp)
-    if upload_to_s3:
-        pass
-    if delete_local_file:
-        pass
-    return output_path
+        raise ValueError('Output destination \'{}\' not recognized'.format(
+            output_destination
+        ))
 
 def fetch_data_lists_data_id(
     data_id,
