@@ -8,8 +8,14 @@ import honeycomb_io.exceptions
 import minimal_honeycomb
 import pandas as pd
 import numpy as np
+import boto3
+from botocore.exceptions import ClientError
 import datetime
 import json
+import io
+import os
+import gzip
+import threading
 import logging
 
 # from process_cuwb_data.utils.log import logger
@@ -40,6 +46,7 @@ def raw_cuwb_data_lists_to_parsed(
     raw_data_lists,
     device_types=['UWBTAG'],
     coordinate_space_id=None,
+    device_id_lookup=None,
     chunk_size=1000,
     client=None,
     uri=None,
@@ -60,6 +67,7 @@ def raw_cuwb_data_lists_to_parsed(
                 data_type,
                 device_types=device_types,
                 coordinate_space_id=coordinate_space_id,
+                device_id_lookup=device_id_lookup,
                 chunk_size=chunk_size,
                 client=client,
                 uri=uri,
@@ -75,6 +83,7 @@ def raw_cuwb_data_to_parsed(
         data_type,
         device_types=['UWBTAG'],
         coordinate_space_id=None,
+        device_id_lookup=None,
         chunk_size=1000,
         client=None,
         uri=None,
@@ -97,30 +106,31 @@ def raw_cuwb_data_to_parsed(
         num_raw_observations,
         data_type
     ))
-    serial_numbers = extract_serial_numbers(
-        raw_data=raw_data
-    )
-    num_serial_numbers = len(serial_numbers)
-    if num_serial_numbers == 0:
-        logger.warn('Raw CUWB {} observations appear to contain no serial numbers'.format(
-            device_types
-        ))
-        return []
-    device_id_lookup = honeycomb_io.fetch_uwb_device_id_lookup(
-        serial_numbers=serial_numbers,
-        device_types=device_types,
-        chunk_size=chunk_size,
-        client=client,
-        uri=uri,
-        token_uri=token_uri,
-        audience=audience,
-        client_id=client_id,
-        client_secret=client_secret
-    )
+    if device_id_lookup is None:
+        serial_numbers = extract_serial_numbers(
+            raw_data=raw_data
+        )
+        num_serial_numbers = len(serial_numbers)
+        if num_serial_numbers == 0:
+            logger.warn('Raw CUWB {} observations appear to contain no serial numbers'.format(
+                device_types
+            ))
+            return []
+        device_id_lookup = honeycomb_io.fetch_uwb_device_id_lookup(
+            serial_numbers=serial_numbers,
+            device_types=device_types,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
     num_uwb_devices = len(device_id_lookup)
     if num_uwb_devices == 0:
         logger.warn('Extracted serial numbers ({}) appear to contain no UWB devices corresponding to target device types ({})'.format(
-            serial_numbers,
+            list(device_id_lookup.keys()),
             device_types
         ))
         return []
@@ -980,6 +990,7 @@ def fetch_cuwb_position_data(
     environment_name=None,
     device_types=['UWBTAG'],
     output_format='list',
+    sort_arguments=None,
     chunk_size=1000,
     client=None,
     uri=None,
@@ -1046,6 +1057,7 @@ def fetch_cuwb_position_data(
         query_list=query_list,
         return_data=return_data,
         chunk_size=chunk_size,
+        sort_arguments=sort_arguments,
         client=client,
         uri=uri,
         token_uri=token_uri,
@@ -1113,6 +1125,7 @@ def fetch_cuwb_accelerometer_data(
     environment_name=None,
     device_types=['UWBTAG'],
     output_format='list',
+    sort_arguments=None,
     chunk_size=1000,
     client=None,
     uri=None,
@@ -1173,6 +1186,7 @@ def fetch_cuwb_accelerometer_data(
         query_list=query_list,
         return_data=return_data,
         chunk_size=chunk_size,
+        sort_arguments=sort_arguments,
         client=client,
         uri=uri,
         token_uri=token_uri,
@@ -1236,6 +1250,7 @@ def fetch_cuwb_gyroscope_data(
     environment_name=None,
     device_types=['UWBTAG'],
     output_format='list',
+    sort_arguments=None,
     chunk_size=1000,
     client=None,
     uri=None,
@@ -1296,6 +1311,7 @@ def fetch_cuwb_gyroscope_data(
         query_list=query_list,
         return_data=return_data,
         chunk_size=chunk_size,
+        sort_arguments=sort_arguments,
         client=client,
         uri=uri,
         token_uri=token_uri,
@@ -1359,6 +1375,7 @@ def fetch_cuwb_magnetometer_data(
     environment_id=None,
     environment_name=None,
     device_types=['UWBTAG'],
+    sort_arguments=None,
     chunk_size=1000,
     output_format='list',
     client=None,
@@ -1420,6 +1437,7 @@ def fetch_cuwb_magnetometer_data(
         query_list=query_list,
         return_data=return_data,
         chunk_size=chunk_size,
+        sort_arguments=sort_arguments,
         client=client,
         uri=uri,
         token_uri=token_uri,
@@ -2506,6 +2524,343 @@ def fetch_material_tray_devices_assignments(environment_id, start_time, end_time
 
     df = pd.DataFrame.from_dict(records, orient='index')
     return df
+
+def create_bulk_import_files(
+    datapoint_timestamp_min,
+    datapoint_timestamp_max,
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    compress_file=True,
+    output_destination='local',
+    local_base_directory=None,
+    s3_bucket=None,
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    logger.info('Fetching device_info')
+    devices_df = honeycomb_io.devices.fetch_devices(
+        device_types=device_types,
+        device_ids=device_ids,
+        part_numbers=None,
+        serial_numbers=None,
+        tag_ids=None,
+        names=None,
+        environment_id=environment_id,
+        environment_name=environment_name,
+        start=datapoint_timestamp_min,
+        end=datapoint_timestamp_max,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    device_ids = list(devices_df.index.dropna().unique())
+    logger.info('Found {} devices for specified parameters: {}'.format(
+        len(device_ids),
+        device_ids
+    ))
+    logger.info('Fetching device assignment info')
+    device_assignments_df = honeycomb_io.devices.fetch_device_assignments_by_device_id(
+        device_ids=device_ids,
+        start=datapoint_timestamp_min,
+        end=datapoint_timestamp_max,
+        require_unique_assignment=False,
+        require_all_devices=False,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    tag_assignments_df = (
+        devices_df
+        .join(device_assignments_df.reset_index().set_index('device_id'))
+    )
+    assignment_ids = list(tag_assignments_df['assignment_id'].dropna().unique())
+    device_id_lookup = (
+        tag_assignments_df
+        .reset_index()
+        .loc[:, ['device_serial_number', 'device_id']]
+        .set_index('device_serial_number')
+        .squeeze()
+        .to_dict()
+    )
+    logger.info('Fetching coordinate space ID')
+    coordinate_space_id = fetch_coordinate_space_id(
+        device_ids=device_ids,
+        start=datapoint_timestamp_min,
+        end=datapoint_timestamp_max,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Fetching data IDs')
+    data_ids = fetch_uwb_data_ids(
+        datapoint_timestamp_min=datapoint_timestamp_min,
+        datapoint_timestamp_max=datapoint_timestamp_max,
+        assignment_ids=assignment_ids,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Found {} datapoints consistent with specified parameters'.format(
+        len(data_ids)
+    ))
+    paths = list()
+    logger.info('Creating bulk import files')
+    for data_id in data_ids:
+        logger.info('Creating bulk import file for datapoint {}'.format(
+            data_id
+        ))
+        path = create_bulk_import_file_data_id(
+            data_id=data_id,
+            device_types=device_types,
+            coordinate_space_id=coordinate_space_id,
+            device_id_lookup=device_id_lookup,
+            compress_file=compress_file,
+            output_destination=output_destination,
+            local_base_directory=local_base_directory,
+            s3_bucket=s3_bucket,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        if path is not None:
+            paths.append(path)
+    return paths
+
+
+def create_bulk_import_file_data_id(
+    data_id,
+    device_types=['UWBTAG'],
+    coordinate_space_id=None,
+    device_id_lookup=None,
+    compress_file=True,
+    output_destination='local',
+    local_base_directory=None,
+    s3_bucket=None,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    raw_data_lists, environment_name, timestamp = fetch_data_lists_data_id(
+        data_id=data_id,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    parsed_data_lists = raw_cuwb_data_lists_to_parsed(
+        raw_data_lists=raw_data_lists,
+        device_types=device_types,
+        coordinate_space_id=coordinate_space_id,
+        device_id_lookup=device_id_lookup,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    if len(parsed_data_lists) == 0:
+        logger.warning('No data of supported types found in datapoint')
+        return None
+    directory_path = os.path.join(
+        environment_name,
+        timestamp.strftime('%Y'),
+        timestamp.strftime('%m'),
+        timestamp.strftime('%d'),
+    )
+    if compress_file:
+        filename = 'datapoint_{}_{}.json.gz'.format(
+            timestamp.strftime('%Y%m%d_%H%M%S'),
+            data_id
+        )
+    else:
+        filename = 'datapoint_{}_{}.json'.format(
+            timestamp.strftime('%Y%m%d_%H%M%S'),
+            data_id
+        )
+    if output_destination == 'local':
+        if local_base_directory is None:
+            raise ValueError('Must specify local base directory for local output')
+        output_directory = os.path.join(
+            local_base_directory,
+            directory_path
+        )
+        output_path = os.path.join(
+            output_directory,
+            filename
+        )
+        os.makedirs(output_directory, exist_ok=True)
+        logger.info('Creating local file {}'.format(
+            output_path
+        ))
+        if compress_file:
+            with gzip.open(output_path, 'wt') as fp:
+                json.dump(parsed_data_lists, fp)
+        else:
+            with open(output_path, 'w') as fp:
+                json.dump(parsed_data_lists, fp)
+        return output_path
+    elif output_destination == 's3':
+        if s3_bucket is None:
+            return ValueError('Must specify S3 bucket for S3 output')
+        s3_key = os.path.join(
+            directory_path,
+            filename
+        )
+        s3_url = 's3://{}'.format(
+            os.path.join(
+                s3_bucket,
+                s3_key
+            )
+        )
+        s3 = boto3.client('s3')
+        with io.BytesIO(bytes(json.dumps(parsed_data_lists).encode('UTF-8'))) as file_stream:
+            if compress_file:
+                def log_upload_update(bytes):
+                    logger.info('Uploading {}: thread id = {}, bytes uploaded={}'.format(
+                        s3_key,
+                        threading.current_thread().ident,
+                        bytes
+                    ))
+                compressed_stream = io.BytesIO()
+                with gzip.GzipFile(fileobj=compressed_stream, mode='w') as gzip_stream:
+                    gzip_stream.write(file_stream.read())
+                compressed_stream.seek(0)
+                logger.info('Sending compressed stream to S3 with bucket \'{}\' and key \'{}\''.format(
+                    s3_bucket,
+                    s3_key
+                ))
+                s3.upload_fileobj(
+                    compressed_stream,
+                    s3_bucket,
+                    s3_key,
+                    Config=boto3.s3.transfer.TransferConfig(use_threads=True),
+                    Callback=log_upload_update
+                )
+                return s3_url
+            else:
+                logger.info('Sending uncompressed stream to S3 with bucket \'{}\' and key \'{}\''.format(
+                    s3_bucket,
+                    s3_key
+                ))
+                s3.upload_fileobj(file_stream, s3_bucket, s3_key)
+                return s3_url
+    else:
+        raise ValueError('Output destination \'{}\' not recognized'.format(
+            output_destination
+        ))
+
+def fetch_data_lists_data_id(
+    data_id,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    client = honeycomb_io.core.generate_client(
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    result=client.request(
+        request_type='query',
+        request_name='getDatapoint',
+        arguments={
+            'data_id': {
+                'type': 'ID!',
+                'value': data_id
+            }
+        },
+        return_object = [
+            'timestamp',
+            {'source': [
+                {'... on Assignment': [
+                    'assignment_id',
+                    {'environment': [
+                        'environment_id',
+                        'name'
+                    ]}
+                ]}
+            ]},
+            {'file': [
+                'data'
+            ]}
+        ]
+    )
+    environment_name = result.get('source', {}).get('environment', {}).get('name')
+    if environment_name is None:
+        raise ValueError('Environment name not found in Datapoint')
+    timestamp = pd.to_datetime(result.get('timestamp'), utc=True).to_pydatetime()
+    if environment_name is None:
+        raise ValueError('Environment name not found in Datapoint')
+    data_jsonl_json = result.get('file', {}).get('data')
+    if data_jsonl_json is None:
+        logger.warn('No UWB data returned')
+        return []
+    try:
+        data_jsonl = json.loads(data_jsonl_json)
+    except:
+        raise ValueError('Expected JSONL wrapped as JSON, but JSON deserialization failed')
+    if not isinstance(data_jsonl, str):
+        raise ValueError('Expected JSONL but got type \'{}\''.format(type(data_jsonl)))
+    data_lists = dict()
+    for data_jsonl_line in data_jsonl.split('\n'):
+        if len(data_jsonl_line) == 0:
+            continue
+        try:
+            datum = json.loads(data_jsonl_line)
+            data_type = datum.get('type')
+            if data_type in SUPPORTED_CUWB_DATA_TYPES:
+                if data_type not in data_lists.keys():
+                    data_lists[data_type] = list()
+                data_lists[data_type].append(datum)
+        except:
+            logger.warn('Encountered malformed JSONL line. Omitting: {}'.format(
+                data_jsonl_line
+            ))
+            continue
+    return data_lists, environment_name, timestamp
 
 # Used by:
 # process_pose_data.process (wf-process-pose-data)

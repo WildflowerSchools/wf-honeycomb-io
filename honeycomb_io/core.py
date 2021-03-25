@@ -152,6 +152,7 @@ def search_objects(
     return_data=None,
     request_name=None,
     id_field_name=None,
+    sort_arguments=None,
     chunk_size=100,
     client=None,
     uri=None,
@@ -197,7 +198,8 @@ def search_objects(
         },
         return_data=return_data,
         id_field_name=id_field_name,
-        chunk_size=chunk_size
+        chunk_size=chunk_size,
+        sort_arguments=sort_arguments
     )
     if not isinstance(result, list):
         raise ValueError('Received unexpected result from Honyecomb: {}'.format(
