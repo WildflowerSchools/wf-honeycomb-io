@@ -107,7 +107,7 @@ def fetch_tray_material_assignments_by_tray_id(
             raise ValueError('Tray IDs {} have more than one assignment in the specified time period'.format(
                 duplicate_tray_ids
             ))
-    if require_unique_assignment:
+    if require_all_trays:
         missing_tray_ids = set(tray_ids) - set(tray_id_count.keys())
         if len(missing_tray_ids) > 0:
             raise ValueError('Tray IDs {} have no assignments in the specified time period'.format(

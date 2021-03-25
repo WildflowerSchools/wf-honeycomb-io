@@ -1475,6 +1475,435 @@ def generate_cuwb_magnetometer_dataframe(
     df.set_index('magnetometer_data_id', inplace=True)
     return df
 
+def fetch_tag_status(
+    environment_id=None,
+    environment_name=None,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    tag_info_df = fetch_tag_info(
+        environment_id=environment_id,
+        environment_name=environment_name,
+        start=now,
+        end=now,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    device_ids = list(tag_info_df.index)
+    position_latest_df = fetch_latest_cuwb_position_data(
+        device_ids=device_ids,
+        environment_id=None,
+        environment_name=None,
+        device_types=['UWBTAG'],
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    accelerometer_latest_df = fetch_latest_cuwb_accelerometer_data(
+        device_ids=device_ids,
+        environment_id=None,
+        environment_name=None,
+        device_types=['UWBTAG'],
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    gyroscope_latest_df = fetch_latest_cuwb_gyroscope_data(
+        device_ids=device_ids,
+        environment_id=None,
+        environment_name=None,
+        device_types=['UWBTAG'],
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    magnetometer_latest_df = fetch_latest_cuwb_magnetometer_data(
+        device_ids=device_ids,
+        environment_id=None,
+        environment_name=None,
+        device_types=['UWBTAG'],
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    tag_status_df = (
+        tag_info_df
+        .join(
+            position_latest_df
+            .set_index('device_id')
+            .loc[:, ['timestamp']]
+            .rename(columns={'timestamp': 'position_latest_timestamp'})
+        )
+        .join(
+            accelerometer_latest_df
+            .set_index('device_id')
+            .loc[:, ['timestamp']]
+            .rename(columns={'timestamp': 'accelerometer_latest_timestamp'})
+        )
+        .join(
+            gyroscope_latest_df
+            .set_index('device_id')
+            .loc[:, ['timestamp']]
+            .rename(columns={'timestamp': 'gyroscope_latest_timestamp'})
+        )
+        .join(
+            magnetometer_latest_df
+            .set_index('device_id')
+            .loc[:, ['timestamp']]
+            .rename(columns={'timestamp': 'magnetometer_latest_timestamp'})
+        )
+    )
+    tag_status_df['position_minutes_ago'] = tag_status_df['position_latest_timestamp'].apply(
+        lambda timestamp: honeycomb_io.utils.minutes_elapsed(timestamp, now)
+    )
+    tag_status_df['accelerometer_minutes_ago'] = tag_status_df['accelerometer_latest_timestamp'].apply(
+        lambda timestamp: honeycomb_io.utils.minutes_elapsed(timestamp, now)
+    )
+    tag_status_df['gyroscope_minutes_ago'] = tag_status_df['gyroscope_latest_timestamp'].apply(
+        lambda timestamp: honeycomb_io.utils.minutes_elapsed(timestamp, now)
+    )
+    tag_status_df['magnetometer_minutes_ago'] = tag_status_df['magnetometer_latest_timestamp'].apply(
+        lambda timestamp: honeycomb_io.utils.minutes_elapsed(timestamp, now)
+    )
+    return tag_status_df
+
+def fetch_latest_cuwb_position_data(
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    if device_ids is None:
+        device_ids = honeycomb_io.devices.fetch_device_ids(
+            device_types=device_types,
+            environment_id=environment_id,
+            environment_name=environment_name,
+            start=now,
+            end=now,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    logger.info('Fetching latest position data for devices {}'.format(
+        device_ids
+    ))
+    return_data = [
+        'position_id',
+        'timestamp',
+        {'coordinate_space': [
+            'space_id'
+        ]},
+        {'object': [
+            {'... on Device': [
+                'device_id',
+                'part_number',
+                'serial_number',
+                'tag_id',
+                'name',
+                'mac_address'
+            ]}
+        ]},
+        'coordinates',
+        'quality'
+    ]
+    data = list()
+    for device_id in device_ids:
+        query_list=[
+            {'field': 'object', 'operator': 'EQ', 'value': device_id}
+        ]
+        datum=honeycomb_io.core.fetch_latest_object(
+            object_name='Position',
+            query_list=query_list,
+            return_data=return_data,
+            request_name=None,
+            id_field_name=None,
+            timestamp_field='timestamp',
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        if datum is not None:
+            data.append(datum)
+    if output_format=='list':
+        return data
+    elif output_format == 'dataframe':
+        return generate_cuwb_position_dataframe(data)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def fetch_latest_cuwb_accelerometer_data(
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    if device_ids is None:
+        device_ids = honeycomb_io.devices.fetch_device_ids(
+            device_types=device_types,
+            environment_id=environment_id,
+            environment_name=environment_name,
+            start=now,
+            end=now,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    logger.info('Fetching latest accelerometer data for devices {}'.format(
+        device_ids
+    ))
+    return_data = [
+        'accelerometer_data_id',
+        'timestamp',
+        {'device': [
+            'device_id',
+            'part_number',
+            'serial_number',
+            'tag_id',
+            'name',
+            'mac_address'
+        ]},
+        'data'
+    ]
+    data = list()
+    for device_id in device_ids:
+        query_list=[
+            {'field': 'device', 'operator': 'EQ', 'value': device_id}
+        ]
+        datum=honeycomb_io.core.fetch_latest_object(
+            object_name='AccelerometerData',
+            query_list=query_list,
+            return_data=return_data,
+            request_name=None,
+            id_field_name=None,
+            timestamp_field='timestamp',
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        if datum is not None:
+            data.append(datum)
+    if output_format=='list':
+        return data
+    elif output_format == 'dataframe':
+        return generate_cuwb_accelerometer_dataframe(data)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def fetch_latest_cuwb_gyroscope_data(
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    if device_ids is None:
+        device_ids = honeycomb_io.devices.fetch_device_ids(
+            device_types=device_types,
+            environment_id=environment_id,
+            environment_name=environment_name,
+            start=now,
+            end=now,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    logger.info('Fetching latest gyroscope data for devices {}'.format(
+        device_ids
+    ))
+    return_data = [
+        'gyroscope_data_id',
+        'timestamp',
+        {'device': [
+            'device_id',
+            'part_number',
+            'serial_number',
+            'tag_id',
+            'name',
+            'mac_address'
+        ]},
+        'data'
+    ]
+    data = list()
+    for device_id in device_ids:
+        query_list=[
+            {'field': 'device', 'operator': 'EQ', 'value': device_id}
+        ]
+        datum=honeycomb_io.core.fetch_latest_object(
+            object_name='GyroscopeData',
+            query_list=query_list,
+            return_data=return_data,
+            request_name=None,
+            id_field_name=None,
+            timestamp_field='timestamp',
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        if datum is not None:
+            data.append(datum)
+    if output_format=='list':
+        return data
+    elif output_format == 'dataframe':
+        return generate_cuwb_gyroscope_dataframe(data)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def fetch_latest_cuwb_magnetometer_data(
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    if device_ids is None:
+        device_ids = honeycomb_io.devices.fetch_device_ids(
+            device_types=device_types,
+            environment_id=environment_id,
+            environment_name=environment_name,
+            start=now,
+            end=now,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    logger.info('Fetching latest magnetometer data for devices {}'.format(
+        device_ids
+    ))
+    return_data = [
+        'magnetometer_data_id',
+        'timestamp',
+        {'device': [
+            'device_id',
+            'part_number',
+            'serial_number',
+            'tag_id',
+            'name',
+            'mac_address'
+        ]},
+        'data'
+    ]
+    data = list()
+    for device_id in device_ids:
+        query_list=[
+            {'field': 'device', 'operator': 'EQ', 'value': device_id}
+        ]
+        datum=honeycomb_io.core.fetch_latest_object(
+            object_name='MagnetometerData',
+            query_list=query_list,
+            return_data=return_data,
+            request_name=None,
+            id_field_name=None,
+            timestamp_field='timestamp',
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        if datum is not None:
+            data.append(datum)
+    if output_format=='list':
+        return data
+    elif output_format == 'dataframe':
+        return generate_cuwb_magnetometer_dataframe(data)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
 def add_device_assignment_info(
     dataframe,
     timestamp_column_name='timestamp',
@@ -1612,6 +2041,89 @@ def add_tray_material_assignment_info(
         on=tray_id_column_name
     )
     return dataframe
+
+def fetch_tag_info(
+    environment_id=None,
+    environment_name=None,
+    start=None,
+    end=None,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    devices_df = honeycomb_io.devices.fetch_devices(
+        device_types=['UWBTAG'],
+        environment_id=environment_id,
+        environment_name=environment_name,
+        start=start,
+        end=end,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    device_ids = list(devices_df.index.unique().dropna())
+    device_assignments_df = honeycomb_io.devices.fetch_device_assignments_by_device_id(
+        device_ids=device_ids,
+        start=start,
+        end=end,
+        require_unique_assignment=True,
+        require_all_devices=False,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    device_entity_assignments_df = honeycomb_io.devices.fetch_device_entity_assignments_by_device_id(
+        device_ids=device_ids,
+        start=start,
+        end=start,
+        require_unique_assignment=True,
+        require_all_devices=False,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    tray_ids = list(device_entity_assignments_df['tray_id'].unique().dropna())
+    tray_material_assignments_df=honeycomb_io.trays.fetch_tray_material_assignments_by_tray_id(
+        tray_ids=tray_ids,
+        start=start,
+        end=start,
+        require_unique_assignment=True,
+        require_all_trays=False,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    tag_info_df = (
+        devices_df
+        .join(device_assignments_df.reset_index().set_index('device_id'))
+        .join(device_entity_assignments_df.reset_index().set_index('device_id'))
+        .join(tray_material_assignments_df.reset_index().set_index('tray_id'), on='tray_id')
+    )
+    return tag_info_df
 
 # Used by:
 # process_cuwb_data.core (wf-process-cuwb-data)

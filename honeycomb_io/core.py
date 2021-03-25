@@ -124,13 +124,6 @@ def update_objects(
         client_id=client_id,
         client_secret=client_secret
     )
-    print(request_name)
-    print(id_field_name)
-    print(ids)
-    print(argument_name)
-    print(argument_type)
-    print(data_list)
-    print(data_fields)
     result = client.bulk_mutation(
         request_name=request_name,
         arguments = {
@@ -171,7 +164,7 @@ def search_objects(
         logger.warn('No query specified')
         data = list()
         return data
-    if query_list is None:
+    if return_data is None:
         logger.warn('No return data specified')
         data = list()
         return data
@@ -211,6 +204,88 @@ def search_objects(
             result
         ))
     return result
+
+def fetch_latest_object(
+    object_name=None,
+    query_list=None,
+    return_data=None,
+    request_name=None,
+    id_field_name=None,
+    timestamp_field='timestamp',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if query_list is None:
+        logger.warn('No query specified')
+        data = list()
+        return data
+    if return_data is None:
+        logger.warn('No return data specified')
+        data = list()
+        return data
+    if request_name is None:
+        if object_name is None:
+            raise ValueError('Must specify either request name or object name')
+        request_name = honeycomb_io.schema.search_endpoint_name(object_name=object_name)
+    if id_field_name is None:
+        if object_name is None:
+            raise ValueError('Must specify either ID field name or object name')
+        id_field_name = honeycomb_io.schema.id_field_name(object_name=object_name)
+    if timestamp_field not in return_data:
+        raise ValueError('Timestamp field \'{}\' must be included in return data specification'.format(
+            timestamp_field
+        ))
+    client = generate_client(
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    result = client.request(
+        request_type='query',
+        request_name=request_name,
+        arguments={
+            'query': {
+                'type': 'QueryExpression!',
+                'value': {
+                    'operator': 'AND',
+                    'children': query_list
+                }
+            },
+            'page': {
+                'type': 'PaginationInput',
+                'value': {
+                    'max': 1,
+                    'sort': {
+                        'field': timestamp_field,
+                        'direction': 'DESC'
+                    }
+                }
+            }
+        },
+        return_object = [
+            {'data': return_data}
+        ]
+    )
+    if not isinstance(result, dict) or not isinstance(result.get('data'), list):
+        raise ValueError('Received unexpected result from Honyecomb: {}'.format(
+            result
+        ))
+    data = result.get('data')
+    if len(data) == 0:
+        logger.warning('No objects returned for endpoint {} and search query list {}'.format(
+            request_name,
+            query_list
+        ))
+        return None
+    return data[0]
 
 def delete_objects(
     object_name=None,

@@ -4,6 +4,7 @@ import honeycomb_io.environments
 import minimal_honeycomb
 import pandas as pd
 import numpy as np
+import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -121,6 +122,239 @@ def write_extrinsic_calibration_data(
     if len(result) > 0:
         ids = [datum.get('extrinsic_calibration_id') for datum in result]
     return ids
+
+def fetch_camera_status(
+    environment_id=None,
+    environment_name=None,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    camera_info_df = fetch_camera_info(
+        environment_id=environment_id,
+        environment_name=environment_name,
+        start=now,
+        end=now,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    assignment_ids = list(camera_info_df['assignment_id'])
+    video_latest_df = fetch_latest_video_datapoints(
+        assignment_ids=assignment_ids,
+        environment_id=None,
+        environment_name=None,
+        device_types=DEFAULT_CAMERA_DEVICE_TYPES,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    camera_status_df = (
+        camera_info_df
+        .join(
+            video_latest_df
+            .set_index('device_id')
+            .loc[:, ['timestamp']]
+            .rename(columns={'timestamp': 'latest_timestamp'})
+        )
+    )
+    camera_status_df['minutes_ago'] = camera_status_df['latest_timestamp'].apply(
+        lambda timestamp: honeycomb_io.utils.minutes_elapsed(timestamp, now)
+    )
+    return camera_status_df
+
+def fetch_camera_info(
+    environment_id=None,
+    environment_name=None,
+    start=None,
+    end=None,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    devices_df = honeycomb_io.devices.fetch_devices(
+        device_types=DEFAULT_CAMERA_DEVICE_TYPES,
+        environment_id=environment_id,
+        environment_name=environment_name,
+        start=start,
+        end=end,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    device_ids = list(devices_df.index.unique().dropna())
+    device_assignments_df = honeycomb_io.devices.fetch_device_assignments_by_device_id(
+        device_ids=device_ids,
+        start=start,
+        end=end,
+        require_unique_assignment=True,
+        require_all_devices=False,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    camera_info_df = (
+        devices_df
+        .join(device_assignments_df.reset_index().set_index('device_id'))
+    )
+    return camera_info_df
+
+def fetch_latest_video_datapoints(
+    assignment_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=DEFAULT_CAMERA_DEVICE_TYPES,
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    if assignment_ids is None:
+        camera_info_df = fetch_camera_info(
+            environment_id=environment_id,
+            environment_name=environment_name,
+            start=now,
+            end=now,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        assignment_ids = list(camera_info_df['assignment_id'].dropna())
+    logger.info('Fetching latest video datapoints for assignment IDs {}'.format(
+        assignment_ids
+    ))
+    return_data = [
+        'data_id',
+        'timestamp',
+        {'source': [
+            {'... on Assignment': [
+                'assignment_id',
+                'start',
+                'end',
+                {'environment': [
+                    'environment_id',
+                    'name'
+                ]},
+                {'assigned': [
+                    {'... on Device': [
+                        'device_id',
+                        'serial_number',
+                        'part_number',
+                        'tag_id',
+                        'name',
+                        'mac_address'
+                    ]}
+                ]}
+            ]}
+        ]},
+        {'file': [
+            'bucketName',
+            'key'
+        ]}
+    ]
+    data = list()
+    for assignment_id in assignment_ids:
+        query_list=[
+            {'field': 'source', 'operator': 'EQ', 'value': assignment_id}
+        ]
+        datum=honeycomb_io.core.fetch_latest_object(
+            object_name='Datapoint',
+            query_list=query_list,
+            return_data=return_data,
+            request_name=None,
+            id_field_name=None,
+            timestamp_field='timestamp',
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        if datum is not None:
+            data.append(datum)
+    if output_format=='list':
+        return data
+    elif output_format == 'dataframe':
+        return generate_video_datapoint_dataframe(data)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def generate_video_datapoint_dataframe(
+    data
+):
+    flat_list = list()
+    for datum in data:
+        flat_list.append({
+            'data_id': datum.get('data_id'),
+            'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'device_id': datum.get('source', {}).get('assigned', {}).get('device_id'),
+            'device_part_number': datum.get('source', {}).get('assigned', {}).get('part_number'),
+            'device_serial_number': datum.get('source', {}).get('assigned', {}).get('serial_number'),
+            'device_tag_id': datum.get('source', {}).get('assigned', {}).get('tag_id'),
+            'device_name': datum.get('source', {}).get('assigned', {}).get('name'),
+            'device_mac_address': datum.get('source', {}).get('assigned', {}).get('mac_address'),
+            'assignment_id': datum.get('source', {}).get('assignment_id'),
+            'assignment_start': datum.get('source', {}).get('start'),
+            'assignment_end': datum.get('source', {}).get('end'),
+            'bucket_name': datum.get('file', {}).get('bucketName'),
+            'key': datum.get('file', {}).get('key')
+        })
+    df = pd.DataFrame(flat_list, dtype='object')
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['assignment_start'] = pd.to_datetime(df['assignment_start'])
+    df['assignment_end'] = pd.to_datetime(df['assignment_end'])
+    df = df.astype({
+        'data_id': 'string',
+        'device_id': 'string',
+        'device_part_number': 'string',
+        'device_serial_number': 'string',
+        'device_tag_id': 'string',
+        'device_name': 'string',
+        'assignment_id': 'string',
+        'bucket_name': 'string',
+        'key': 'string'
+    })
+    df.set_index('data_id', inplace=True)
+    return df
 
 # Used by:
 # honeycomb_io.poses
@@ -736,90 +970,91 @@ def fetch_camera_device_id_lookup(
 
 # Used by:
 # process_cuwb_data.geom_render (wf-process-cuwb-data)
-def fetch_camera_info(
-    environment_name,
-    start_time,
-    end_time,
-    camera_device_types=DEFAULT_CAMERA_DEVICE_TYPES
-):
-    logger.info('Fetching camera info between start time {} and end time {} for environment {}'.format(
-        start_time.isoformat(),
-        end_time.isoformat(),
-        environment_name
-    ))
-    device_ids = fetch_camera_device_ids(
-        environment_name=environment_name,
-        start_time=start_time,
-        end_time=end_time,
-        camera_device_types=camera_device_types
-    )
-    logger.info('Fetching camera info between start time {} and end time {} for the following device_ids: {}'.format(
-        start_time.isoformat(),
-        end_time.isoformat(),
-        device_ids
-    ))
-    client = minimal_honeycomb.MinimalHoneycombClient()
-    result = client.request(
-        request_type='query',
-        request_name='searchDevices',
-        arguments={
-            'query': {
-                'type': 'QueryExpression!',
-                'value': {
-                    'field': 'device_id',
-                    'operator': 'IN',
-                    'values': device_ids
-                }
-            }
-        },
-        return_object=[
-            {'data': [
-                'device_id',
-                'name',
-                {'intrinsic_calibrations': [
-                    'start',
-                    'end',
-                    'camera_matrix',
-                    'distortion_coefficients',
-                    'image_width',
-                    'image_height'
-                ]},
-                {'extrinsic_calibrations': [
-                    'start',
-                    'end',
-                    'translation_vector',
-                    'rotation_vector'
-                ]}
-            ]}
-        ]
-    )
-    devices = result.get('data')
-    camera_info_dict = dict()
-    for device in devices:
-        intrinsic_calibration = extract_assignment(
-            assignments=device['intrinsic_calibrations'],
-            start_time=start_time,
-            end_time=end_time
-        )
-        if intrinsic_calibration is None:
-            continue
-        extrinsic_calibration = extract_assignment(
-            assignments=device['extrinsic_calibrations'],
-            start_time=start_time,
-            end_time=end_time
-        )
-        if extrinsic_calibration is None:
-            continue
-        camera_info_dict[device['device_id']] = {
-            'device_name': device['name'],
-            'camera_matrix': intrinsic_calibration['camera_matrix'],
-            'distortion_coefficients': intrinsic_calibration['distortion_coefficients'],
-            'image_width': intrinsic_calibration['image_width'],
-            'image_height': intrinsic_calibration['image_height'],
-            'translation_vector': extrinsic_calibration['translation_vector'],
-            'rotation_vector': extrinsic_calibration['rotation_vector'],
-        }
-    return camera_info_dict
+# We need to replace or rename this function
+# def fetch_camera_info(
+#     environment_name,
+#     start_time,
+#     end_time,
+#     camera_device_types=DEFAULT_CAMERA_DEVICE_TYPES
+# ):
+#     logger.info('Fetching camera info between start time {} and end time {} for environment {}'.format(
+#         start_time.isoformat(),
+#         end_time.isoformat(),
+#         environment_name
+#     ))
+#     device_ids = fetch_camera_device_ids(
+#         environment_name=environment_name,
+#         start_time=start_time,
+#         end_time=end_time,
+#         camera_device_types=camera_device_types
+#     )
+#     logger.info('Fetching camera info between start time {} and end time {} for the following device_ids: {}'.format(
+#         start_time.isoformat(),
+#         end_time.isoformat(),
+#         device_ids
+#     ))
+#     client = minimal_honeycomb.MinimalHoneycombClient()
+#     result = client.request(
+#         request_type='query',
+#         request_name='searchDevices',
+#         arguments={
+#             'query': {
+#                 'type': 'QueryExpression!',
+#                 'value': {
+#                     'field': 'device_id',
+#                     'operator': 'IN',
+#                     'values': device_ids
+#                 }
+#             }
+#         },
+#         return_object=[
+#             {'data': [
+#                 'device_id',
+#                 'name',
+#                 {'intrinsic_calibrations': [
+#                     'start',
+#                     'end',
+#                     'camera_matrix',
+#                     'distortion_coefficients',
+#                     'image_width',
+#                     'image_height'
+#                 ]},
+#                 {'extrinsic_calibrations': [
+#                     'start',
+#                     'end',
+#                     'translation_vector',
+#                     'rotation_vector'
+#                 ]}
+#             ]}
+#         ]
+#     )
+#     devices = result.get('data')
+#     camera_info_dict = dict()
+#     for device in devices:
+#         intrinsic_calibration = extract_assignment(
+#             assignments=device['intrinsic_calibrations'],
+#             start_time=start_time,
+#             end_time=end_time
+#         )
+#         if intrinsic_calibration is None:
+#             continue
+#         extrinsic_calibration = extract_assignment(
+#             assignments=device['extrinsic_calibrations'],
+#             start_time=start_time,
+#             end_time=end_time
+#         )
+#         if extrinsic_calibration is None:
+#             continue
+#         camera_info_dict[device['device_id']] = {
+#             'device_name': device['name'],
+#             'camera_matrix': intrinsic_calibration['camera_matrix'],
+#             'distortion_coefficients': intrinsic_calibration['distortion_coefficients'],
+#             'image_width': intrinsic_calibration['image_width'],
+#             'image_height': intrinsic_calibration['image_height'],
+#             'translation_vector': extrinsic_calibration['translation_vector'],
+#             'rotation_vector': extrinsic_calibration['rotation_vector'],
+#         }
+#     return camera_info_dict
 
 # Used by:
 # process_cuwb_data.geom_render (wf-process-cuwb-data)
