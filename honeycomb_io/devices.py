@@ -478,7 +478,7 @@ def generate_device_entity_assignment_dataframe(
         entity_assignments = [dict()]
     flat_list = list()
     for entity_assignment in entity_assignments:
-        entity_type = entity_assignment.get('entity_type')
+        entity_type = entity_assignment.get('entity', {}).get('entity_type', '')
         flat_list.append({
             'entity_assignment_id': entity_assignment.get('entity_assignment_id'),
             'device_id': entity_assignment.get('device', {}).get('device_id'),
@@ -486,12 +486,12 @@ def generate_device_entity_assignment_dataframe(
             'entity_assignment_end': pd.to_datetime(entity_assignment.get('end'), utc=True),
             'entity_type': entity_assignment.get('entity', {}).get('entity_type'),
             'tray_id': entity_assignment.get('entity', {}).get('tray_id'),
-            'tray_name': entity_assignment.get('entity', {}).get('name') if entity_type == 'TRAY' else None,
+            'tray_name': entity_assignment.get('entity', {}).get('name') if entity_type.upper() == 'TRAY' else None,
             'tray_part_number': entity_assignment.get('entity', {}).get('part_number'),
             'tray_serial_number': entity_assignment.get('entity', {}).get('serial_number'),
             'person_id': entity_assignment.get('entity', {}).get('person_id'),
             'person_type': entity_assignment.get('entity', {}).get('person_type'),
-            'person_name': entity_assignment.get('entity', {}).get('name') if entity_type == 'PERSON' else None,
+            'person_name': entity_assignment.get('entity', {}).get('name') if entity_type.upper() == 'PERSON' else None,
             'person_first_name': entity_assignment.get('entity', {}).get('first_name'),
             'person_last_name': entity_assignment.get('entity', {}).get('last_name'),
             'person_nickname': entity_assignment.get('entity', {}).get('nickname'),
