@@ -2655,6 +2655,93 @@ def create_bulk_import_files(
             paths.append(path)
     return paths
 
+def fetch_cuwb_data_ids_by_time_span(
+    datapoint_timestamp_min,
+    datapoint_timestamp_max,
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    logger.info('Fetching device_info')
+    devices_df = honeycomb_io.devices.fetch_devices(
+        device_types=device_types,
+        device_ids=device_ids,
+        part_numbers=None,
+        serial_numbers=None,
+        tag_ids=None,
+        names=None,
+        environment_id=environment_id,
+        environment_name=environment_name,
+        start=datapoint_timestamp_min,
+        end=datapoint_timestamp_max,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    device_ids = list(devices_df.index.dropna().unique())
+    logger.info('Found {} devices for specified parameters: {}'.format(
+        len(device_ids),
+        device_ids
+    ))
+    logger.info('Fetching device assignment info')
+    device_assignments_df = honeycomb_io.devices.fetch_device_assignments_by_device_id(
+        device_ids=device_ids,
+        start=datapoint_timestamp_min,
+        end=datapoint_timestamp_max,
+        require_unique_assignment=False,
+        require_all_devices=False,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    tag_assignments_df = (
+        devices_df
+        .join(device_assignments_df.reset_index().set_index('device_id'))
+    )
+    assignment_ids = list(tag_assignments_df['assignment_id'].dropna().unique())
+    # device_id_lookup = (
+    #     tag_assignments_df
+    #     .reset_index()
+    #     .loc[:, ['device_serial_number', 'device_id']]
+    #     .set_index('device_serial_number')
+    #     .squeeze()
+    #     .to_dict()
+    # )
+    logger.info('Fetching data IDs')
+    data_ids = fetch_uwb_data_ids(
+        datapoint_timestamp_min=datapoint_timestamp_min,
+        datapoint_timestamp_max=datapoint_timestamp_max,
+        assignment_ids=assignment_ids,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Found {} datapoints consistent with specified parameters'.format(
+        len(data_ids)
+    ))
+    return data_ids
 
 def create_bulk_import_file_data_id(
     data_id,
