@@ -11,6 +11,7 @@ import numpy as np
 import boto3
 from botocore.exceptions import ClientError
 import datetime
+import dateutil
 import json
 import io
 import os
@@ -2524,6 +2525,68 @@ def fetch_material_tray_devices_assignments(environment_id, start_time, end_time
 
     df = pd.DataFrame.from_dict(records, orient='index')
     return df
+
+def scan_cuwb_data(
+    start_date,
+    end_date,
+    timezone_name,
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    num_days = (end_date - start_date).days + 1
+    date_range = [start_date + datetime.timedelta(days=day_index) for day_index in range(num_days)]
+    data_list = list()
+    for target_date in date_range:
+        datapoint_timestamp_min = datetime.datetime(
+            target_date.year,
+            target_date.month,
+            target_date.day,
+            0,
+            0,
+            0,
+            0,
+            tzinfo=dateutil.tz.gettz(timezone_name)
+        ).astimezone(datetime.timezone.utc)
+        datapoint_timestamp_max = datetime.datetime(
+            target_date.year,
+            target_date.month,
+            target_date.day,
+            23,
+            59,
+            59,
+            999999,
+            tzinfo=dateutil.tz.gettz(timezone_name)
+        ).astimezone(datetime.timezone.utc)
+        data_ids = honeycomb_io.fetch_cuwb_data_ids_by_time_span(
+            datapoint_timestamp_min=datapoint_timestamp_min,
+            datapoint_timestamp_max=datapoint_timestamp_max,
+            device_ids=device_ids,
+            environment_id=environment_id,
+            environment_name=environment_name,
+            device_types=device_types,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        data_list.append({
+            'date': target_date,
+            'num_datapoints': len(data_ids)
+        })
+    data_scan_df = pd.DataFrame(data_list)
+    return data_scan_df
 
 def create_bulk_import_files(
     datapoint_timestamp_min,
