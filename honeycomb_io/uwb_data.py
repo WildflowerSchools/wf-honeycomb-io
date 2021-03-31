@@ -2668,6 +2668,72 @@ def fetch_cuwb_data_ids_by_time_span(
     ))
     return data_ids
 
+def create_bulk_import_files_day(
+    target_date,
+    timezone_name,
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    coordinate_space_id=None,
+    compress_file=True,
+    output_destination='local',
+    local_base_directory=None,
+    s3_bucket=None,
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    logger.info('Creating bulk import files for {} in timezone \'{}\''.format(
+        target_date.strftime('%Y-%m-%d'),
+        timezone_name
+    ))
+    datapoint_timestamp_min = datetime.datetime(
+        target_date.year,
+        target_date.month,
+        target_date.day,
+        0,
+        0,
+        0,
+        0,
+        tzinfo=dateutil.tz.gettz(timezone_name)
+    ).astimezone(datetime.timezone.utc)
+    datapoint_timestamp_max = datetime.datetime(
+        target_date.year,
+        target_date.month,
+        target_date.day,
+        23,
+        59,
+        59,
+        999999,
+        tzinfo=dateutil.tz.gettz(timezone_name)
+    ).astimezone(datetime.timezone.utc)
+    paths = create_bulk_import_files(
+        datapoint_timestamp_min=datapoint_timestamp_min,
+        datapoint_timestamp_max=datapoint_timestamp_max,
+        device_ids=device_ids,
+        environment_id=environment_id,
+        environment_name=environment_name,
+        device_types=device_types,
+        coordinate_space_id=coordinate_space_id,
+        compress_file=compress_file,
+        output_destination=output_destination,
+        local_base_directory=local_base_directory,
+        s3_bucket=s3_bucket,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    return paths
+
 def create_bulk_import_files(
     datapoint_timestamp_min,
     datapoint_timestamp_max,
@@ -2675,6 +2741,7 @@ def create_bulk_import_files(
     environment_id=None,
     environment_name=None,
     device_types=['UWBTAG'],
+    coordinate_space_id=None,
     compress_file=True,
     output_destination='local',
     local_base_directory=None,
@@ -2743,18 +2810,19 @@ def create_bulk_import_files(
         .to_dict()
     )
     logger.info('Fetching coordinate space ID')
-    coordinate_space_id = fetch_coordinate_space_id(
-        device_ids=device_ids,
-        start=datapoint_timestamp_min,
-        end=datapoint_timestamp_max,
-        chunk_size=chunk_size,
-        client=client,
-        uri=uri,
-        token_uri=token_uri,
-        audience=audience,
-        client_id=client_id,
-        client_secret=client_secret
-    )
+    if coordinate_space_id is None:
+        coordinate_space_id = fetch_coordinate_space_id(
+            device_ids=device_ids,
+            start=datapoint_timestamp_min,
+            end=datapoint_timestamp_max,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
     logger.info('Fetching data IDs')
     data_ids = fetch_uwb_data_ids(
         datapoint_timestamp_min=datapoint_timestamp_min,
