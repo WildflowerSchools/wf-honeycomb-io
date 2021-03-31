@@ -13,4 +13,4 @@ from .poses import *
 from .datapoints import *
 from .exceptions import *
 
-__version__ = '1.3.0'
+__version__ = '1.4.0'
