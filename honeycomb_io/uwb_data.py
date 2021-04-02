@@ -43,6 +43,338 @@ OBJECT_NAMES = {
     'magnetometer': 'MagnetometerData'
 }
 
+def fetch_cuwb_data_datapoints(
+    datapoint_timestamp_min,
+    datapoint_timestamp_max,
+    device_ids=None,
+    environment_id=None,
+    environment_name=None,
+    device_types=['UWBTAG'],
+    coordinate_space_id=None,
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    logger.info('Fetching device_info')
+    devices_df = honeycomb_io.devices.fetch_devices(
+        device_types=device_types,
+        device_ids=device_ids,
+        part_numbers=None,
+        serial_numbers=None,
+        tag_ids=None,
+        names=None,
+        environment_id=environment_id,
+        environment_name=environment_name,
+        start=datapoint_timestamp_min,
+        end=datapoint_timestamp_max,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    device_ids = list(devices_df.index.dropna().unique())
+    logger.info('Found {} devices for specified parameters: {}'.format(
+        len(device_ids),
+        device_ids
+    ))
+    logger.info('Fetching device assignment info')
+    device_assignments_df = honeycomb_io.devices.fetch_device_assignments_by_device_id(
+        device_ids=device_ids,
+        start=datapoint_timestamp_min,
+        end=datapoint_timestamp_max,
+        require_unique_assignment=False,
+        require_all_devices=False,
+        output_format='dataframe',
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    tag_assignments_df = (
+        devices_df
+        .join(device_assignments_df.reset_index().set_index('device_id'))
+    )
+    assignment_ids = list(tag_assignments_df['assignment_id'].dropna().unique())
+    device_id_lookup = (
+        tag_assignments_df
+        .reset_index()
+        .loc[:, ['device_serial_number', 'device_id']]
+        .set_index('device_serial_number')
+        .squeeze()
+        .to_dict()
+    )
+    logger.info('Fetching coordinate space ID')
+    if coordinate_space_id is None:
+        coordinate_space_id = fetch_coordinate_space_id(
+            device_ids=device_ids,
+            start=datapoint_timestamp_min,
+            end=datapoint_timestamp_max,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    logger.info('Fetching data IDs')
+    data_ids = fetch_uwb_data_ids(
+        datapoint_timestamp_min=datapoint_timestamp_min,
+        datapoint_timestamp_max=datapoint_timestamp_max,
+        assignment_ids=assignment_ids,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Found {} datapoints consistent with specified parameters'.format(
+        len(data_ids)
+    ))
+    df_lists = dict()
+    logger.info('Fetching data from each datapoint')
+    for data_id in data_ids:
+        logger.info('Fetching data from datapoint {}'.format(
+            data_id
+        ))
+        dataframes_datapoint = fetch_cuwb_data_datapoint(
+            data_id=data_id,
+            device_types=device_types,
+            coordinate_space_id=coordinate_space_id,
+            device_id_lookup=device_id_lookup,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        for data_type, df in dataframes_datapoint.items():
+            if data_type not in df_lists.keys():
+                df_lists[data_type] = list()
+            df_lists[data_type].append(df)
+    dfs=dict()
+    for data_type, df_list in df_lists.items():
+        dfs[data_type] = pd.concat(df_lists[data_type], ignore_index=True)
+    return dfs
+
+def fetch_cuwb_data_datapoint(
+    data_id,
+    device_types=['UWBTAG'],
+    coordinate_space_id=None,
+    device_id_lookup=None,
+    chunk_size=1000,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    logger.info('Fetching data from Datapoint with data ID {}'.format(data_id))
+    raw_data_lists, environment_name, timestamp = fetch_data_lists_data_id(
+        data_id,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    parsed_data_lists = honeycomb_io.raw_cuwb_data_lists_to_parsed(
+        raw_data_lists=raw_data_lists,
+        device_types=device_types,
+        coordinate_space_id=coordinate_space_id,
+        device_id_lookup=device_id_lookup
+    )
+    dataframes=dict()
+    for data_type, parsed_data_list in parsed_data_lists.items():
+        dataframes[data_type] = generate_cuwb_dataframe_from_parsed_data_list(
+            data=parsed_data_list,
+            data_type=data_type,
+            datapoint_data_id=data_id,
+            datapoint_timestamp=pd.to_datetime(timestamp)
+        )
+    return dataframes
+
+def generate_cuwb_dataframe_from_parsed_data_list(
+    data,
+    data_type,
+    datapoint_data_id=None,
+    datapoint_timestamp=None
+):
+    if data_type=='position':
+        return generate_cuwb_position_dataframe_from_parsed_data_list(
+            data,
+            datapoint_data_id=datapoint_data_id,
+            datapoint_timestamp=datapoint_timestamp
+        )
+    if data_type=='accelerometer':
+        return generate_cuwb_accelerometer_dataframe_from_parsed_data_list(
+            data,
+            datapoint_data_id=datapoint_data_id,
+            datapoint_timestamp=datapoint_timestamp
+        )
+    if data_type=='gyroscope':
+        return generate_cuwb_gyroscope_dataframe_from_parsed_data_list(
+            data,
+            datapoint_data_id=datapoint_data_id,
+            datapoint_timestamp=datapoint_timestamp
+        )
+    if data_type=='magnetometer':
+        return generate_cuwb_magnetometer_dataframe_from_parsed_data_list(
+            data,
+            datapoint_data_id=datapoint_data_id,
+            datapoint_timestamp=datapoint_timestamp
+        )
+    raise ValueError('Data type \'{}\' not recognized'.format(data_type))
+
+def generate_cuwb_position_dataframe_from_parsed_data_list(
+    data,
+    datapoint_data_id=None,
+    datapoint_timestamp=None
+):
+    flat_list = list()
+    for datum in data:
+        if isinstance(datum.get('coordinates'), list) and len(datum.get('coordinates')) == 3:
+            coordinates = datum.get('coordinates')
+        else:
+            coordinates = [None, None, None]
+        flat_list.append({
+            'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'coordinate_space_id': datum.get('coordinate_space'),
+            'device_id': datum.get('object'),
+            'x': coordinates[0],
+            'y': coordinates[1],
+            'z': coordinates[2],
+            'quality': datum.get('quality'),
+            'datapoint_data_id': datapoint_data_id,
+            'datapoint_timestamp': datapoint_timestamp
+        })
+    df = pd.DataFrame(flat_list, dtype='object')
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df = df.astype({
+        'coordinate_space_id': 'string',
+        'device_id': 'string',
+        'x': 'float',
+        'y': 'float',
+        'z': 'float',
+        'quality': 'float',
+        'datapoint_data_id': 'string',
+        'datapoint_timestamp': 'string'
+    })
+    return df
+
+def generate_cuwb_accelerometer_dataframe_from_parsed_data_list(
+    data,
+    datapoint_data_id=None,
+    datapoint_timestamp=None
+):
+    flat_list = list()
+    for datum in data:
+        if isinstance(datum.get('data'), list) and len(datum.get('data')) == 3:
+            data_field = datum.get('data')
+        else:
+            data_field = [None, None, None]
+        flat_list.append({
+            'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'device_id': datum.get('device'),
+            'x': data_field[0],
+            'y': data_field[1],
+            'z': data_field[2],
+            'datapoint_data_id': datapoint_data_id,
+            'datapoint_timestamp': datapoint_timestamp
+        })
+    df = pd.DataFrame(flat_list, dtype='object')
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df = df.astype({
+        'device_id': 'string',
+        'x': 'float',
+        'y': 'float',
+        'z': 'float',
+        'datapoint_data_id': 'string',
+        'datapoint_timestamp': 'string'
+    })
+    return df
+
+def generate_cuwb_gyroscope_dataframe_from_parsed_data_list(
+    data,
+    datapoint_data_id=None,
+    datapoint_timestamp=None
+):
+    flat_list = list()
+    for datum in data:
+        if isinstance(datum.get('data'), list) and len(datum.get('data')) == 3:
+            data_field = datum.get('data')
+        else:
+            data_field = [None, None, None]
+        flat_list.append({
+            'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'device_id': datum.get('device'),
+            'x': data_field[0],
+            'y': data_field[1],
+            'z': data_field[2],
+            'datapoint_data_id': datapoint_data_id,
+            'datapoint_timestamp': datapoint_timestamp
+        })
+    df = pd.DataFrame(flat_list, dtype='object')
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df = df.astype({
+        'device_id': 'string',
+        'x': 'float',
+        'y': 'float',
+        'z': 'float',
+        'datapoint_data_id': 'string',
+        'datapoint_timestamp': 'string'
+    })
+    return df
+
+def generate_cuwb_magnetometer_dataframe_from_parsed_data_list(
+    data,
+    datapoint_data_id=None,
+    datapoint_timestamp=None
+):
+    flat_list = list()
+    for datum in data:
+        if isinstance(datum.get('data'), list) and len(datum.get('data')) == 3:
+            data_field = datum.get('data')
+        else:
+            data_field = [None, None, None]
+        flat_list.append({
+            'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'device_id': datum.get('device'),
+            'x': data_field[0],
+            'y': data_field[1],
+            'z': data_field[2],
+            'datapoint_data_id': datapoint_data_id,
+            'datapoint_timestamp': datapoint_timestamp
+        })
+    df = pd.DataFrame(flat_list, dtype='object')
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df = df.astype({
+        'device_id': 'string',
+        'x': 'float',
+        'y': 'float',
+        'z': 'float',
+        'datapoint_data_id': 'string',
+        'datapoint_timestamp': 'string'
+    })
+    return df
+
 def raw_cuwb_data_lists_to_parsed(
     raw_data_lists,
     device_types=['UWBTAG'],
