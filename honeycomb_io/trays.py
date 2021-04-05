@@ -6,6 +6,208 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def fetch_trays(
+    tray_ids=None,
+    part_numbers=None,
+    serial_numbers=None,
+    names=None,
+    environment_id=None,
+    environment_name=None,
+    start=None,
+    end=None,
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if (
+        tray_ids is not None or
+        part_numbers is not None or
+        serial_numbers is not None or
+        names is not None
+    ):
+        query_list = list()
+        if tray_ids is not None:
+            query_list.append(
+                {'field': 'tray_id', 'operator': 'CONTAINED_BY', 'values': tray_ids}
+            )
+        if part_numbers is not None:
+            query_list.append(
+                {'field': 'part_number', 'operator': 'CONTAINED_BY', 'values': part_numbers}
+            )
+        if serial_numbers is not None:
+            query_list.append(
+                {'field': 'serial_number', 'operator': 'CONTAINED_BY', 'values': serial_numbers}
+            )
+        if names is not None:
+            query_list.append(
+                {'field': 'name', 'operator': 'CONTAINED_BY', 'values': names}
+            )
+        return_data = [
+            'tray_id',
+            'part_number',
+            'serial_number',
+            'name',
+            {'assignments': [
+                'assignment_id',
+                'start',
+                'end',
+                {'environment': [
+                    'environment_id',
+                    'name'
+                ]}
+            ]}
+        ]
+        logger.info('Fetching trays with specified tray characteristics')
+        trays=honeycomb_io.core.search_objects(
+            object_name='Tray',
+            query_list=query_list,
+            return_data=return_data,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        logger.info('Fetched {} trays with specified tray characteristics'.format(
+            len(trays)
+        ))
+        logger.info('Filtering based on specified assignment characteristics')
+        filtered_trays = list(filter(
+            lambda tray: len(honeycomb_io.environments.filter_assignments(
+                assignments=tray.get('assignments', []),
+                environment_id=environment_id,
+                environment_name=environment_name,
+                start=start,
+                end=end
+            )) > 0,
+            trays
+        ))
+        logger.info('Found {} trays with specified assignment characteristics'.format(
+            len(filtered_trays)
+        ))
+        return_list = filtered_trays
+    else:
+        # No tray characteristics were specified, so we search assignments instead
+        if environment_id is None:
+            if environment_name is not None:
+                logger.info('Fetching environment ID for environment name \'{}\''.format(
+                    environment_name
+                ))
+                environment_id = honeycomb_io.fetch_environment_id(
+                    environment_name=environment_name,
+                    client=client,
+                    uri=uri,
+                    token_uri=token_uri,
+                    audience=audience,
+                    client_id=client_id,
+                    client_secret=client_secret
+                )
+        query_list = list()
+        if environment_id is not None:
+            query_list.append(
+                {'field': 'environment', 'operator': 'EQ', 'value': environment_id}
+            )
+        if start is not None:
+            query_list.append(
+                {'operator': 'OR', 'children': [
+                    {'field': 'end', 'operator': 'ISNULL'},
+                    {'field': 'end', 'operator': 'GTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(start)}
+                ]}
+            )
+        if end is not None:
+            query_list.append(
+                {'field': 'start', 'operator': 'LTE', 'value': honeycomb_io.utils.to_honeycomb_datetime(end)}
+            )
+        if query_list is None:
+            logger.warn('No criteria specified for tray search. Returning no trays')
+            return list()
+        query_list.append(
+            {'field': 'assigned_type', 'operator': 'EQ', 'value': 'TRAY'}
+        )
+        return_data=[
+            'assignment_id',
+            'start',
+            'end',
+            {'environment': [
+                'environment_id',
+                'name'
+            ]},
+            {'assigned': [
+                {'... on Tray': [
+                    'tray_id',
+                    'part_number',
+                    'serial_number',
+                    'name'
+                ]}
+            ]}
+        ]
+        assignments = honeycomb_io.core.search_objects(
+            object_name='Assignment',
+            query_list=query_list,
+            return_data=return_data,
+            chunk_size=chunk_size,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+        tray_dict = dict()
+        for assignment in assignments:
+            tray_id = assignment.get('assigned').get('tray_id')
+            if tray_id not in tray_dict.keys():
+                tray = assignment.get('assigned')
+                assignment = {
+                    'assignment_id': assignment.get('assignment_id'),
+                    'start': assignment.get('start'),
+                    'end': assignment.get('end'),
+                    'environment': assignment.get('environment')
+                }
+                tray['assignments'] = [assignment]
+                tray_dict[tray_id] = tray
+            else:
+                assignment = {
+                    'assignment_id': assignment.get('assignment_id'),
+                    'start': assignment.get('start'),
+                    'end': assignment.get('end'),
+                    'environment': assignment.get('environment')
+                }
+                tray_dict[tray_id]['assignments'].append(assignment)
+        trays = list(tray_dict.values())
+        return_list = trays
+    if output_format =='list':
+        return return_list
+    elif output_format == 'dataframe':
+        return generate_tray_dataframe(return_list)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def generate_tray_dataframe(
+    trays
+):
+    if len(trays) == 0:
+        trays = [dict()]
+    flat_list = list()
+    for tray in trays:
+        flat_list.append({
+            'tray_id': tray.get('tray_id'),
+            'tray_part_number': tray.get('part_number'),
+            'tray_serial_number': tray.get('serial_number'),
+            'tray_name': tray.get('name')
+        })
+    df = pd.DataFrame(flat_list, dtype='string')
+    df.set_index('tray_id', inplace=True)
+    return df
+
+
 # Not currently used
 def fetch_tray_ids():
     logger.info('Fetching entity assignment info to extract tray IDs')
