@@ -6,8 +6,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
-
 def fetch_material_interactions(
     start=None,
     end=None,
