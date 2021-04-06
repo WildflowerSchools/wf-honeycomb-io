@@ -102,5 +102,7 @@ def generate_material_interaction_dataframe(
             'material_name': material_interaction.get('material', {}).get('name'),
         })
     df = pd.DataFrame(flat_list, dtype='string')
+    df['start'] = pd.to_datetime(df['start'])
+    df['end'] = pd.to_datetime(df['end'])
     df.set_index('material_interaction_id', inplace=True)
     return df
