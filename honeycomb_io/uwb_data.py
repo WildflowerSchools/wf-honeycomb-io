@@ -971,6 +971,8 @@ def parse_raw_position_data(
             if datum['serial_number'] in device_id_lookup.keys():
                 position_data.append({
                     'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
+                    'socket_read_time': honeycomb_io.utils.to_honeycomb_datetime(datum.get('socket_read_time')),
+                    'network_time': str(datum.get('network_time')),
                     'coordinate_space': coordinate_space_id,
                     'object': device_id_lookup[datum['serial_number']],
                     'coordinates': [
@@ -979,6 +981,7 @@ def parse_raw_position_data(
                         datum['z']/POSITION_SCALE_FACTOR
                     ],
                     'quality': datum.get('quality'),
+                    'anchor_count': datume.get('anchor_count'),
                     'source_type': 'MEASURED'
                 })
     except:
@@ -1012,6 +1015,8 @@ def parse_raw_accelerometer_data(
             if datum['serial_number'] in device_id_lookup.keys():
                 accelerometer_data.append({
                     'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
+                    'socket_read_time': honeycomb_io.utils.to_honeycomb_datetime(datum.get('socket_read_time')),
+                    'network_time': str(datum.get('network_time')),
                     'device': device_id_lookup[datum['serial_number']],
                     'data': [
                         datum['x']*datum['scale']/CUWB_DATA_MAX_INT[ACCELEROMETER_BYTE_SIZE],
@@ -1050,6 +1055,8 @@ def parse_raw_gyroscope_data(
             if datum['serial_number'] in device_id_lookup.keys():
                 gyroscope_data.append({
                     'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
+                    'socket_read_time': honeycomb_io.utils.to_honeycomb_datetime(datum.get('socket_read_time')),
+                    'network_time': str(datum.get('network_time')),
                     'device': device_id_lookup[datum['serial_number']],
                     'data': [
                         datum['x']*datum['scale']/CUWB_DATA_MAX_INT[GYROSCOPE_BYTE_SIZE],
@@ -1088,6 +1095,8 @@ def parse_raw_magnetometer_data(
             if datum['serial_number'] in device_id_lookup.keys():
                 magnetometer_data.append({
                     'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
+                    'socket_read_time': honeycomb_io.utils.to_honeycomb_datetime(datum.get('socket_read_time')),
+                    'network_time': str(datum.get('network_time')),
                     'device': device_id_lookup[datum['serial_number']],
                     'data': [
                         datum['x']*datum['scale']/CUWB_DATA_MAX_INT[MAGNETOMETER_BYTE_SIZE],
