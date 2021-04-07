@@ -256,24 +256,30 @@ def generate_cuwb_position_dataframe_from_parsed_data_list(
             coordinates = [None, None, None]
         flat_list.append({
             'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'socket_read_time': pd.to_datetime(datum.get('socket_read_time'), utc=True),
+            'network_time': int(datum.get('network_time')) if datum.get('network_time') is not None else None,
             'coordinate_space_id': datum.get('coordinate_space'),
             'device_id': datum.get('object'),
             'x': coordinates[0],
             'y': coordinates[1],
             'z': coordinates[2],
             'quality': datum.get('quality'),
+            'anchor_count': datum.get('anchor_count'),
             'datapoint_data_id': datapoint_data_id,
             'datapoint_timestamp': datapoint_timestamp
         })
     df = pd.DataFrame(flat_list, dtype='object')
     df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['socket_read_time'] = pd.to_datetime(df['socket_read_time'])
     df = df.astype({
+        'network_time': 'Int64',
         'coordinate_space_id': 'string',
         'device_id': 'string',
         'x': 'float',
         'y': 'float',
         'z': 'float',
         'quality': 'float',
+        'anchor_count': 'Int64',
         'datapoint_data_id': 'string',
         'datapoint_timestamp': 'string'
     })
@@ -292,6 +298,8 @@ def generate_cuwb_accelerometer_dataframe_from_parsed_data_list(
             data_field = [None, None, None]
         flat_list.append({
             'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'socket_read_time': pd.to_datetime(datum.get('socket_read_time'), utc=True),
+            'network_time': int(datum.get('network_time')) if datum.get('network_time') is not None else None,
             'device_id': datum.get('device'),
             'x': data_field[0],
             'y': data_field[1],
@@ -301,7 +309,9 @@ def generate_cuwb_accelerometer_dataframe_from_parsed_data_list(
         })
     df = pd.DataFrame(flat_list, dtype='object')
     df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['socket_read_time'] = pd.to_datetime(df['socket_read_time'])
     df = df.astype({
+        'network_time': 'Int64',
         'device_id': 'string',
         'x': 'float',
         'y': 'float',
@@ -324,6 +334,8 @@ def generate_cuwb_gyroscope_dataframe_from_parsed_data_list(
             data_field = [None, None, None]
         flat_list.append({
             'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'socket_read_time': pd.to_datetime(datum.get('socket_read_time'), utc=True),
+            'network_time': int(datum.get('network_time')) if datum.get('network_time') is not None else None,
             'device_id': datum.get('device'),
             'x': data_field[0],
             'y': data_field[1],
@@ -333,7 +345,9 @@ def generate_cuwb_gyroscope_dataframe_from_parsed_data_list(
         })
     df = pd.DataFrame(flat_list, dtype='object')
     df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['socket_read_time'] = pd.to_datetime(df['socket_read_time'])
     df = df.astype({
+        'network_time': 'Int64',
         'device_id': 'string',
         'x': 'float',
         'y': 'float',
@@ -356,6 +370,8 @@ def generate_cuwb_magnetometer_dataframe_from_parsed_data_list(
             data_field = [None, None, None]
         flat_list.append({
             'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'socket_read_time': pd.to_datetime(datum.get('socket_read_time'), utc=True),
+            'network_time': int(datum.get('network_time')) if datum.get('network_time') is not None else None,
             'device_id': datum.get('device'),
             'x': data_field[0],
             'y': data_field[1],
@@ -365,7 +381,9 @@ def generate_cuwb_magnetometer_dataframe_from_parsed_data_list(
         })
     df = pd.DataFrame(flat_list, dtype='object')
     df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['socket_read_time'] = pd.to_datetime(df['socket_read_time'])
     df = df.astype({
+        'network_time': 'Int64',
         'device_id': 'string',
         'x': 'float',
         'y': 'float',
@@ -972,7 +990,7 @@ def parse_raw_position_data(
                 position_data.append({
                     'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
                     'socket_read_time': honeycomb_io.utils.to_honeycomb_datetime(datum.get('socket_read_time')),
-                    'network_time': str(datum.get('network_time')),
+                    'network_time': str(datum.get('network_time')) if datum.get('network_time') is not None else None,
                     'coordinate_space': coordinate_space_id,
                     'object': device_id_lookup[datum['serial_number']],
                     'coordinates': [
@@ -1016,7 +1034,7 @@ def parse_raw_accelerometer_data(
                 accelerometer_data.append({
                     'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
                     'socket_read_time': honeycomb_io.utils.to_honeycomb_datetime(datum.get('socket_read_time')),
-                    'network_time': str(datum.get('network_time')),
+                    'network_time': str(datum.get('network_time')) if datum.get('network_time') is not None else None,
                     'device': device_id_lookup[datum['serial_number']],
                     'data': [
                         datum['x']*datum['scale']/CUWB_DATA_MAX_INT[ACCELEROMETER_BYTE_SIZE],
@@ -1056,7 +1074,7 @@ def parse_raw_gyroscope_data(
                 gyroscope_data.append({
                     'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
                     'socket_read_time': honeycomb_io.utils.to_honeycomb_datetime(datum.get('socket_read_time')),
-                    'network_time': str(datum.get('network_time')),
+                    'network_time': str(datum.get('network_time')) if datum.get('network_time') is not None else None,
                     'device': device_id_lookup[datum['serial_number']],
                     'data': [
                         datum['x']*datum['scale']/CUWB_DATA_MAX_INT[GYROSCOPE_BYTE_SIZE],
@@ -1096,7 +1114,7 @@ def parse_raw_magnetometer_data(
                 magnetometer_data.append({
                     'timestamp': honeycomb_io.utils.to_honeycomb_datetime(datum['timestamp']),
                     'socket_read_time': honeycomb_io.utils.to_honeycomb_datetime(datum.get('socket_read_time')),
-                    'network_time': str(datum.get('network_time')),
+                    'network_time': str(datum.get('network_time')) if datum.get('network_time') is not None else None,
                     'device': device_id_lookup[datum['serial_number']],
                     'data': [
                         datum['x']*datum['scale']/CUWB_DATA_MAX_INT[MAGNETOMETER_BYTE_SIZE],
@@ -1367,6 +1385,8 @@ def fetch_cuwb_position_data(
     return_data = [
         'position_id',
         'timestamp',
+        'socket_read_time',
+        'network_time',
         {'coordinate_space': [
             'space_id'
         ]},
@@ -1381,7 +1401,8 @@ def fetch_cuwb_position_data(
             ]}
         ]},
         'coordinates',
-        'quality'
+        'quality',
+        'anchor_count'
     ]
     if device_ids is not None:
         logger.info('Fetching position data for devices {} for period {} to {}'.format(
@@ -1429,6 +1450,8 @@ def generate_cuwb_position_dataframe(
         flat_list.append({
             'position_id': datum.get('position_id'),
             'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'socket_read_time': pd.to_datetime(datum.get('socket_read_time'), utc=True),
+            'network_time': int(datum.get('network_time')) if datum.get('network_time') is not None else None,
             'coordinate_space_id': datum.get('coordinate_space', {}).get('space_id'),
             'device_id': datum.get('object', {}).get('device_id'),
             'device_part_number': datum.get('object', {}).get('part_number'),
@@ -1439,12 +1462,15 @@ def generate_cuwb_position_dataframe(
             'x': coordinates[0],
             'y': coordinates[1],
             'z': coordinates[2],
-            'quality': datum.get('quality')
+            'quality': datum.get('quality'),
+            'anchor_count': datum.get('anchor_count')
         })
     df = pd.DataFrame(flat_list, dtype='object')
     df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['socket_read_time'] = pd.to_datetime(df['socket_read_time'])
     df = df.astype({
         'position_id': 'string',
+        'network_time': 'Int64',
         'coordinate_space_id': 'string',
         'device_id': 'string',
         'device_part_number': 'string',
@@ -1454,7 +1480,8 @@ def generate_cuwb_position_dataframe(
         'x': 'float',
         'y': 'float',
         'z': 'float',
-        'quality': 'float'
+        'quality': 'float',
+        'anchor_count': 'Int64'
     })
     df.set_index('position_id', inplace=True)
     return df
@@ -1502,6 +1529,8 @@ def fetch_cuwb_accelerometer_data(
     return_data = [
         'accelerometer_data_id',
         'timestamp',
+        'socket_read_time',
+        'network_time',
         {'device': [
             'device_id',
             'part_number',
@@ -1558,6 +1587,8 @@ def generate_cuwb_accelerometer_dataframe(
         flat_list.append({
             'accelerometer_data_id': datum.get('accelerometer_data_id'),
             'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'socket_read_time': pd.to_datetime(datum.get('socket_read_time'), utc=True),
+            'network_time': int(datum.get('network_time')) if datum.get('network_time') is not None else None,
             'device_id': datum.get('device', {}).get('device_id'),
             'device_part_number': datum.get('device', {}).get('part_number'),
             'device_serial_number': datum.get('device', {}).get('serial_number'),
@@ -1570,8 +1601,10 @@ def generate_cuwb_accelerometer_dataframe(
         })
     df = pd.DataFrame(flat_list, dtype='object')
     df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['socket_read_time'] = pd.to_datetime(df['socket_read_time'])
     df = df.astype({
         'accelerometer_data_id': 'string',
+        'network_time': 'Int64',
         'device_id': 'string',
         'device_part_number': 'string',
         'device_serial_number': 'string',
@@ -1627,6 +1660,8 @@ def fetch_cuwb_gyroscope_data(
     return_data = [
         'gyroscope_data_id',
         'timestamp',
+        'socket_read_time',
+        'network_time',
         {'device': [
             'device_id',
             'part_number',
@@ -1683,6 +1718,8 @@ def generate_cuwb_gyroscope_dataframe(
         flat_list.append({
             'gyroscope_data_id': datum.get('gyroscope_data_id'),
             'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'socket_read_time': pd.to_datetime(datum.get('socket_read_time'), utc=True),
+            'network_time': int(datum.get('network_time')) if datum.get('network_time') is not None else None,
             'device_id': datum.get('device', {}).get('device_id'),
             'device_part_number': datum.get('device', {}).get('part_number'),
             'device_serial_number': datum.get('device', {}).get('serial_number'),
@@ -1695,8 +1732,10 @@ def generate_cuwb_gyroscope_dataframe(
         })
     df = pd.DataFrame(flat_list, dtype='object')
     df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['socket_read_time'] = pd.to_datetime(df['socket_read_time'])
     df = df.astype({
         'gyroscope_data_id': 'string',
+        'network_time': 'Int64',
         'device_id': 'string',
         'device_part_number': 'string',
         'device_serial_number': 'string',
@@ -1753,6 +1792,8 @@ def fetch_cuwb_magnetometer_data(
     return_data = [
         'magnetometer_data_id',
         'timestamp',
+        'socket_read_time',
+        'network_time',
         {'device': [
             'device_id',
             'part_number',
@@ -1809,6 +1850,8 @@ def generate_cuwb_magnetometer_dataframe(
         flat_list.append({
             'magnetometer_data_id': datum.get('magnetometer_data_id'),
             'timestamp': pd.to_datetime(datum.get('timestamp'), utc=True),
+            'socket_read_time': pd.to_datetime(datum.get('socket_read_time'), utc=True),
+            'network_time': int(datum.get('network_time')) if datum.get('network_time') is not None else None,
             'device_id': datum.get('device', {}).get('device_id'),
             'device_part_number': datum.get('device', {}).get('part_number'),
             'device_serial_number': datum.get('device', {}).get('serial_number'),
@@ -1821,8 +1864,10 @@ def generate_cuwb_magnetometer_dataframe(
         })
     df = pd.DataFrame(flat_list, dtype='object')
     df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df['socket_read_time'] = pd.to_datetime(df['socket_read_time'])
     df = df.astype({
         'magnetometer_data_id': 'string',
+        'network_time': 'Int64',
         'device_id': 'string',
         'device_part_number': 'string',
         'device_serial_number': 'string',
@@ -1994,6 +2039,8 @@ def fetch_latest_cuwb_position_data(
     return_data = [
         'position_id',
         'timestamp',
+        'socket_read_time',
+        'network_time',
         {'coordinate_space': [
             'space_id'
         ]},
@@ -2008,7 +2055,8 @@ def fetch_latest_cuwb_position_data(
             ]}
         ]},
         'coordinates',
-        'quality'
+        'quality',
+        'anchor_count'
     ]
     data = list()
     for device_id in device_ids:
@@ -2075,6 +2123,8 @@ def fetch_latest_cuwb_accelerometer_data(
     return_data = [
         'accelerometer_data_id',
         'timestamp',
+        'socket_read_time',
+        'network_time',
         {'device': [
             'device_id',
             'part_number',
@@ -2150,6 +2200,8 @@ def fetch_latest_cuwb_gyroscope_data(
     return_data = [
         'gyroscope_data_id',
         'timestamp',
+        'socket_read_time',
+        'network_time',
         {'device': [
             'device_id',
             'part_number',
@@ -2225,6 +2277,8 @@ def fetch_latest_cuwb_magnetometer_data(
     return_data = [
         'magnetometer_data_id',
         'timestamp',
+        'socket_read_time',
+        'network_time',
         {'device': [
             'device_id',
             'part_number',
@@ -2534,7 +2588,6 @@ def fetch_raw_cuwb_data(
             'flags',
             'minutes_remaining',
             'processor_usage',
-            'network_time'
         ],
         inplace=True,
         errors='ignore'
@@ -2546,6 +2599,7 @@ def fetch_raw_cuwb_data(
         inplace=True
     )
     df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+    df['socket_read_time'] = pd.to_datetime(df['socket_read_time'], utc=True)
     df.dropna(subset=['timestamp'], inplace=True)
     df.set_index('timestamp', inplace=True)
     df.sort_index(inplace=True)
@@ -2554,6 +2608,8 @@ def fetch_raw_cuwb_data(
         'device_serial_number'), on='device_serial_number')
     df = df.reindex(columns=[
         'type',
+        'socket_read_time',
+        'network_time',
         'device_id',
         'device_part_number',
         'device_serial_number',
@@ -3513,6 +3569,8 @@ def extract_position_data(
     df = df.reindex(columns=[
         'assignment_id',
         'timestamp',
+        'socket_read_time',
+        'network_time',
         'object_id',
         'serial_number',
         'x_position',
