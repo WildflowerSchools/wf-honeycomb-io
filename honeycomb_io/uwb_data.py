@@ -981,7 +981,7 @@ def parse_raw_position_data(
                         datum['z']/POSITION_SCALE_FACTOR
                     ],
                     'quality': datum.get('quality'),
-                    'anchor_count': datume.get('anchor_count'),
+                    'anchor_count': datum.get('anchor_count'),
                     'source_type': 'MEASURED'
                 })
     except:
