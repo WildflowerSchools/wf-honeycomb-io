@@ -11,6 +11,7 @@ from .materials import *
 from .uwb_data import *
 from .poses import *
 from .datapoints import *
+from .interactions import *
 from .exceptions import *
 
 __version__ = '1.6.0'
