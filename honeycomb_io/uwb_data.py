@@ -1441,6 +1441,8 @@ def fetch_cuwb_position_data(
 def generate_cuwb_position_dataframe(
     data
 ):
+    if len(data) == 0:
+        return pd.DataFrame()
     flat_list = list()
     for datum in data:
         if isinstance(datum.get('coordinates'), list) and len(datum.get('coordinates')) == 3:
@@ -1578,6 +1580,8 @@ def fetch_cuwb_accelerometer_data(
 def generate_cuwb_accelerometer_dataframe(
     data
 ):
+    if len(data) == 0:
+        return pd.DataFrame()
     flat_list = list()
     for datum in data:
         if isinstance(datum.get('data'), list) and len(datum.get('data')) == 3:
@@ -1709,6 +1713,8 @@ def fetch_cuwb_gyroscope_data(
 def generate_cuwb_gyroscope_dataframe(
     data
 ):
+    if len(data) == 0:
+        return pd.DataFrame()
     flat_list = list()
     for datum in data:
         if isinstance(datum.get('data'), list) and len(datum.get('data')) == 3:
@@ -1841,6 +1847,8 @@ def fetch_cuwb_magnetometer_data(
 def generate_cuwb_magnetometer_dataframe(
     data
 ):
+    if len(data) == 0:
+        return pd.DataFrame()
     flat_list = list()
     for datum in data:
         if isinstance(datum.get('data'), list) and len(datum.get('data')) == 3:
