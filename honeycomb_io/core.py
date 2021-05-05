@@ -2,6 +2,7 @@ import honeycomb_io.schema
 import honeycomb_io.utils
 import minimal_honeycomb
 import inflection
+import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -214,6 +215,7 @@ def fetch_latest_object(
     request_name=None,
     id_field_name=None,
     timestamp_field='timestamp',
+    time_limit_hours=24,
     chunk_size=100,
     client=None,
     uri=None,
@@ -242,6 +244,14 @@ def fetch_latest_object(
         raise ValueError('Timestamp field \'{}\' must be included in return data specification'.format(
             timestamp_field
         ))
+    time_limit = honeycomb_io.utils.to_honeycomb_datetime(
+        datetime.datetime.now(tz=datetime.timezone.utc) -
+        datetime.timedelta(hours=time_limit_hours)
+    )
+    try:
+        query_list.append({'field': timestamp_field, 'operator': 'GTE', 'value': time_limit})
+    except:
+        query_list=[{'field': timestamp_field, 'operator': 'GTE', 'value': time_limit}]
     client = generate_client(
         client=client,
         uri=uri,
