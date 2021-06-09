@@ -208,7 +208,7 @@ def filter_assignments(
         lambda assignment: (
             (
                 environment_id is None or
-                assignment.get('environment').get('environment_id') == environent_id
+                assignment.get('environment').get('environment_id') == environment_id
             ) and
             (
                 environment_name is None or
