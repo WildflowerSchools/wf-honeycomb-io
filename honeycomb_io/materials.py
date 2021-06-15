@@ -200,6 +200,7 @@ def generate_material_dataframe(
             'description': material.get('description')
         })
     df = pd.DataFrame(flat_list, dtype='string')
+    df['transparent_classroom_id'] = pd.to_numeric(df['transparent_classroom_id']).astype('Int64')
     df.set_index('material_id', inplace=True)
     return df
 
