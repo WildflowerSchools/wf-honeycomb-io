@@ -1,3 +1,4 @@
+import honeycomb_io.core
 import minimal_honeycomb
 import pandas as pd
 import logging
