@@ -194,13 +194,13 @@ def generate_material_dataframe(
     for material in materials:
         flat_list.append({
             'material_id': material.get('material_id'),
-            'name': material.get('name'),
-            'transparent_classroom_id': material.get('transparent_classroom_id'),
-            'transparent_classroom_type': material.get('transparent_classroom_type'),
-            'description': material.get('description')
+            'material_name': material.get('name'),
+            'material_transparent_classroom_id': material.get('transparent_classroom_id'),
+            'material_transparent_classroom_type': material.get('transparent_classroom_type'),
+            'material_description': material.get('description')
         })
     df = pd.DataFrame(flat_list, dtype='string')
-    df['transparent_classroom_id'] = pd.to_numeric(df['transparent_classroom_id']).astype('Int64')
+    df['material_transparent_classroom_id'] = pd.to_numeric(df['material_transparent_classroom_id']).astype('Int64')
     df.set_index('material_id', inplace=True)
     return df
 
