@@ -14,6 +14,11 @@ def fetch_persons(
     last_names=None,
     nicknames=None,
     short_names=None,
+    anonymized_names=None,
+    anonymized_first_names=None,
+    anonymized_last_names=None,
+    anonymized_nicknames=None,
+    anonymized_short_names=None,
     environment_id=None,
     environment_name=None,
     start=None,
@@ -34,7 +39,12 @@ def fetch_persons(
         first_names is not None or
         last_names is not None or
         nicknames is not None or
-        short_names is not None
+        short_names is not None or
+        anonymized_names is not None or
+        anonymized_first_names is not None or
+        anonymized_last_names is not None or
+        anonymized_nicknames is not None or
+        anonymized_short_names is not None
     ):
         query_list = list()
         if person_ids is not None:
@@ -65,6 +75,26 @@ def fetch_persons(
             query_list.append(
                 {'field': 'short_name', 'operator': 'CONTAINED_BY', 'values': short_names}
             )
+        if anonymized_names is not None:
+            query_list.append(
+                {'field': 'anonymized_name', 'operator': 'CONTAINED_BY', 'values': nanonymized_ames}
+            )
+        if anonymized_first_names is not None:
+            query_list.append(
+                {'field': 'anonymized_first_name', 'operator': 'CONTAINED_BY', 'values': anonymized_first_names}
+            )
+        if anonymized_last_names is not None:
+            query_list.append(
+                {'field': 'anonymized_last_name', 'operator': 'CONTAINED_BY', 'values': anonymized_last_names}
+            )
+        if nicknames is not None:
+            query_list.append(
+                {'field': 'anonymized_nickname', 'operator': 'CONTAINED_BY', 'values': anonymized_nicknames}
+            )
+        if anonymized_short_names is not None:
+            query_list.append(
+                {'field': 'anonymized_short_name', 'operator': 'CONTAINED_BY', 'values': anonymized_short_names}
+            )
         return_data = [
             'person_id',
             'person_type',
@@ -73,6 +103,11 @@ def fetch_persons(
             'last_name',
             'nickname',
             'short_name',
+            'anonymized_name',
+            'anonymized_first_name',
+            'anonymized_last_name',
+            'anonymized_nickname',
+            'anonymized_short_name',
             'transparent_classroom_id',
             {'assignments': [
                 'assignment_id',
@@ -170,6 +205,11 @@ def fetch_persons(
                     'last_name',
                     'nickname',
                     'short_name',
+                    'anonymized_name',
+                    'anonymized_first_name',
+                    'anonymized_last_name',
+                    'anonymized_nickname',
+                    'anonymized_short_name',
                     'transparent_classroom_id'
                 ]}
             ]}
@@ -231,6 +271,11 @@ def generate_person_dataframe(
             'last_name': person.get('last_name'),
             'nickname': person.get('nickname'),
             'short_name': person.get('short_name'),
+            'anonymized_name': person.get('anonymized_name'),
+            'anonymized_first_name': person.get('anonymized_first_name'),
+            'anonymized_last_name': person.get('anonymized_last_name'),
+            'anonymized_nickname': person.get('anonymized_nickname'),
+            'anonymized_short_name': person.get('anonymized_short_name'),
             'transparent_classroom_id': person.get('transparent_classroom_id')
         })
     df = pd.DataFrame(flat_list, dtype='string')
