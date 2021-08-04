@@ -320,7 +320,9 @@ def fetch_person_info(
                 {'... on Person': [
                     'person_id',
                     'name',
-                    'short_name'
+                    'short_name',
+                    'anonymized_name',
+                    'anonymized_short_name'
                 ]}
             ]}
         ],
@@ -331,7 +333,9 @@ def fetch_person_info(
         data_list.append({
             'person_id': assignment.get('assigned', {}).get('person_id'),
             'name': assignment.get('assigned', {}).get('name'),
-            'short_name': assignment.get('assigned', {}).get('short_name')
+            'short_name': assignment.get('assigned', {}).get('short_name'),
+            'anonymized_name': assignment.get('assigned', {}).get('anonymized_name'),
+            'anonymized_short_name': assignment.get('assigned', {}).get('anonymized_short_name')
         })
     person_info_df = pd.DataFrame(data_list)
     person_info_df.set_index('person_id', inplace=True)
