@@ -429,6 +429,11 @@ def fetch_device_entity_assignments_by_device_id(
                 'last_name',
                 'nickname',
                 'short_name',
+                'anonymized_name',
+                'anonymized_first_name',
+                'anonymized_last_name',
+                'anonymized_nickname',
+                'anonymized_short_name',
                 'transparent_classroom_id'
             ]},
         ]}
@@ -496,6 +501,11 @@ def generate_device_entity_assignment_dataframe(
             'person_last_name': entity_assignment.get('entity', {}).get('last_name'),
             'person_nickname': entity_assignment.get('entity', {}).get('nickname'),
             'person_short_name': entity_assignment.get('entity', {}).get('short_name'),
+            'person_anonymized_name': entity_assignment.get('entity', {}).get('anonymized_name'),
+            'person_anonymized_first_name': entity_assignment.get('entity', {}).get('anonymized_first_name'),
+            'person_anonymized_last_name': entity_assignment.get('entity', {}).get('anonymized_last_name'),
+            'person_anonymized_nickname': entity_assignment.get('entity', {}).get('anonymized_nickname'),
+            'person_anonymized_short_name': entity_assignment.get('entity', {}).get('anonymized_short_name'),
             'person_transparent_classroom_id': entity_assignment.get('entity', {}).get('transparent_classroom_id')
         })
     df = pd.DataFrame(flat_list, dtype='object')
@@ -516,6 +526,11 @@ def generate_device_entity_assignment_dataframe(
         'person_last_name': 'string',
         'person_nickname': 'string',
         'person_short_name': 'string',
+        'person_anonymized_name': 'string',
+        'person_anonymized_first_name': 'string',
+        'person_anonymized_last_name': 'string',
+        'person_anonymized_nickname': 'string',
+        'person_anonymized_short_name': 'string',
         'person_transparent_classroom_id': 'Int64'
     })
     df.set_index('entity_assignment_id', inplace=True)
