@@ -743,24 +743,24 @@ def fetch_camera_calibrations(
         start=start,
         end=end,
         chunk_size=chunk_size,
-        client=None,
-        uri=None,
-        token_uri=None,
-        audience=None,
-        client_id=None,
-        client_secret=None
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
     )
     extrinsic_calibrations = fetch_extrinsic_calibrations(
         camera_ids=camera_ids,
         start=start,
         end=end,
         chunk_size=chunk_size,
-        client=None,
-        uri=None,
-        token_uri=None,
-        audience=None,
-        client_id=None,
-        client_secret=None
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
     )
     camera_calibrations = dict()
     for camera_id in camera_ids:
