@@ -192,7 +192,7 @@ def fetch_devices(
             'start',
             'end',
             {'environment': [
-                'environment_id'
+                'environment_id',
                 'name'
             ]},
             {'assigned': [
@@ -206,7 +206,7 @@ def fetch_devices(
                 ]}
             ]}
         ]
-        assignments = search_objects(
+        assignments = honeycomb_io.core.search_objects(
             object_name='Assignment',
             query_list=query_list,
             return_data=return_data,
