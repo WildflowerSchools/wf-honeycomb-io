@@ -587,6 +587,65 @@ def fetch_pose_model_id(
         return pose_model_id
     return None
 
+def fetch_all_pose_models(
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    return_data = [
+        'pose_model_id',
+        'model_name',
+        'model_variant_name',
+        'keypoint_names',
+        'keypoint_descriptions',
+        'keypoint_connectors'
+    ]
+    logger.info('Fetching all pose models')
+    pose_models=honeycomb_io.core.fetch_all_objects(
+        object_name='PoseModel',
+        return_data=return_data,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Fetched {} pose models'.format(
+        len(pose_models)
+    ))
+    if output_format =='list':
+        return pose_models
+    elif output_format == 'dataframe':
+        return generate_pose_model_dataframe(pose_models)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def generate_pose_model_dataframe(
+    pose_models
+):
+    if len(pose_models) == 0:
+        pose_models = [dict()]
+    flat_list = list()
+    for pose_model in pose_models:
+        flat_list.append({
+            'pose_model_id': pose_model.get('pose_model_id'),
+            'pose_model_name': pose_model.get('model_name'),
+            'pose_model_variant_name': pose_model.get('model_variant_name'),
+            'keypoint_names': pose_model.get('keypoint_names'),
+            'keypoint_descriptions': pose_model.get('keypoint_descriptions'),
+            'keypoint_connectors': pose_model.get('keypoint_connectors')
+        })
+    df = pd.DataFrame(flat_list, dtype='string')
+    df.set_index('pose_model_id', inplace=True)
+    return df
+
 # Used by:
 # process_pose_data.overlay (wf-process-pose-data)
 def fetch_pose_model(
