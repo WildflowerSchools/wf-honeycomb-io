@@ -208,6 +208,54 @@ def search_objects(
         ))
     return result
 
+def fetch_all_objects(
+    object_name=None,
+    return_data=None,
+    request_name=None,
+    id_field_name=None,
+    sort_arguments=None,
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if return_data is None:
+        logger.warn('No return data specified')
+        data = list()
+        return data
+    if request_name is None:
+        if object_name is None:
+            raise ValueError('Must specify either request name or object name')
+        request_name = honeycomb_io.schema.fetch_all_endpoint_name(object_name=object_name)
+    if id_field_name is None:
+        if object_name is None:
+            raise ValueError('Must specify either ID field name or object name')
+        id_field_name = honeycomb_io.schema.id_field_name(object_name=object_name)
+    client = generate_client(
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    result = client.bulk_query(
+        request_name=request_name,
+        arguments=None,
+        return_data=return_data,
+        id_field_name=id_field_name,
+        chunk_size=chunk_size,
+        sort_arguments=sort_arguments
+    )
+    if not isinstance(result, list):
+        raise ValueError('Received unexpected result from Honyecomb: {}'.format(
+            result
+        ))
+    return result
+
 def fetch_latest_object(
     object_name=None,
     query_list=None,

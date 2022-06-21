@@ -79,6 +79,12 @@ def update_endpoint_argument_type(object_name):
         name = object_name + 'UpdateInput'
     return name
 
+def fetch_all_endpoint_name(object_name):
+    name = SCHEMA.get(object_name, {}).get('fetch_all_endpoint_name')
+    if name is None:
+        name = object_name + 's'
+    return name
+
 def search_endpoint_name(object_name):
     name = SCHEMA.get(object_name, {}).get('search_endpoint_name')
     if name is None:
