@@ -6,6 +6,64 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def fetch_all_environments(
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    return_data = [
+        'environment_id',
+        'name',
+        'transparent_classroom_id',
+        'description',
+        'location',
+    ]
+    logger.info('Fetching all environments')
+    environments=honeycomb_io.core.fetch_all_objects(
+        object_name='Environment',
+        return_data=return_data,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Fetched {} environments'.format(
+        len(environments)
+    ))
+    if output_format =='list':
+        return environments
+    elif output_format == 'dataframe':
+        return generate_environment_dataframe(environments)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+def generate_environment_dataframe(
+    environments
+):
+    if len(environments) == 0:
+        environments = [dict()]
+    flat_list = list()
+    for environment in environments:
+        flat_list.append({
+            'environment_id': environment.get('environment_id'),
+            'environment_name': environment.get('name'),
+            'environment_transparent_classroom_id': environment.get('transparent_classroom_id'),
+            'environment_description': environment.get('description'),
+            'environment_location': environment.get('location'),
+        })
+    df = pd.DataFrame(flat_list, dtype='string')
+    df['environment_transparent_classroom_id'] = pd.to_numeric(df['environment_transparent_classroom_id']).astype('Int64')
+    df.set_index('environment_id', inplace=True)
+    return df
+
 # Used by:
 # honeycomb_io.cameras
 # video_io.core (wf-video-io)
