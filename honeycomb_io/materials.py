@@ -5,6 +5,57 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def fetch_all_materials(
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    return_data = [
+        'material_id',
+        'name',
+        'transparent_classroom_id',
+        'transparent_classroom_type',
+        'description',
+        {'assignments': [
+            'assignment_id',
+            'start',
+            'end',
+            {'environment': [
+                'environment_id',
+                'name'
+            ]}
+        ]}
+    ]
+    logger.info('Fetching all materials')
+    materials = honeycomb_io.core.fetch_all_objects(
+        object_name='Material',
+        return_data=return_data,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Fetched {} materials'.format(
+        len(materials)
+    ))
+    for material in materials:
+        material['current_assignment'] = honeycomb_io.environments.get_current_assignment(material['assignments'])
+    if output_format =='list':
+        return materials
+    elif output_format == 'dataframe':
+        return generate_material_dataframe(materials)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
+
 def fetch_materials(
     material_ids=None,
     names=None,
@@ -192,15 +243,54 @@ def generate_material_dataframe(
         materials = [dict()]
     flat_list = list()
     for material in materials:
-        flat_list.append({
+        list_element = {
             'material_id': material.get('material_id'),
             'material_name': material.get('name'),
             'material_transparent_classroom_id': material.get('transparent_classroom_id'),
             'material_transparent_classroom_type': material.get('transparent_classroom_type'),
             'material_description': material.get('description')
-        })
+        }
+        if 'current_assignment' in material.keys():
+            list_element['environment_name'] =  material.get('current_assignment').get('environment', {}).get('name')
+            list_element['start'] =  material.get('current_assignment').get('start')
+            list_element['end'] =  material.get('current_assignment').get('end')
+        flat_list.append(list_element)
     df = pd.DataFrame(flat_list, dtype='string')
     df['material_transparent_classroom_id'] = pd.to_numeric(df['material_transparent_classroom_id']).astype('Int64')
+    if 'environment_name' in df.columns:
+        df = (
+            df.
+            reindex(columns=[
+                'material_id',
+                'environment_name',
+                'start',
+                'end',
+                'material_name',
+                'material_transparent_classroom_id',
+                'material_transparent_classroom_type',
+                'material_description'
+            ])
+            .sort_values([
+                'environment_name',
+                'material_transparent_classroom_type',
+                'material_name'
+            ])
+        )
+    else:
+        df = (
+            df.
+            reindex(columns=[
+                'material_id',
+                'material_name',
+                'material_transparent_classroom_id',
+                'material_transparent_classroom_type',
+                'material_description'
+            ])
+            .sort_values([
+                'material_transparent_classroom_type',
+                'material_name'
+            ])
+        )
     df.set_index('material_id', inplace=True)
     return df
 
