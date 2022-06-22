@@ -6,6 +6,55 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def fetch_all_trays(
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    return_data = [
+        'tray_id',
+        'part_number',
+        'serial_number',
+        'name',
+        {'assignments': [
+            'assignment_id',
+            'start',
+            'end',
+            {'environment': [
+                'environment_id',
+                'name'
+            ]}
+        ]}
+    ]
+    logger.info('Fetching all trays')
+    trays = honeycomb_io.core.fetch_all_objects(
+        object_name='Tray',
+        return_data=return_data,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Fetched {} trays'.format(
+        len(trays)
+    ))
+    for tray in trays:
+        tray['current_assignment'] = honeycomb_io.environments.get_current_assignment(tray['assignments'])
+    if output_format =='list':
+        return trays
+    elif output_format == 'dataframe':
+        return generate_tray_dataframe(trays)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
+
 def fetch_trays(
     tray_ids=None,
     part_numbers=None,
@@ -197,13 +246,52 @@ def generate_tray_dataframe(
         trays = [dict()]
     flat_list = list()
     for tray in trays:
-        flat_list.append({
+        list_element = {
             'tray_id': tray.get('tray_id'),
             'tray_part_number': tray.get('part_number'),
             'tray_serial_number': tray.get('serial_number'),
             'tray_name': tray.get('name')
-        })
+        }
+        if 'current_assignment' in tray.keys():
+            list_element['environment_name'] =  tray.get('current_assignment').get('environment', {}).get('name')
+            list_element['start'] =  tray.get('current_assignment').get('start')
+            list_element['end'] =  tray.get('current_assignment').get('end')
+        flat_list.append(list_element)
     df = pd.DataFrame(flat_list, dtype='string')
+    if 'environment_name' in df.columns:
+        df = (
+            df.
+            reindex(columns=[
+                'tray_id',
+                'environment_name',
+                'start',
+                'end',
+                'tray_part_number',
+                'tray_serial_number',
+                'tray_name'
+            ])
+            .sort_values([
+                'environment_name',
+                'tray_part_number',
+                'tray_serial_number',
+                'tray_name'
+            ])
+        )
+    else:
+        df = (
+            df.
+            reindex(columns=[
+                'tray_id',
+                'tray_part_number',
+                'tray_serial_number',
+                'tray_name'
+            ])
+            .sort_values([
+                'tray_part_number',
+                'tray_serial_number',
+                'tray_name'
+            ])
+        )
     df.set_index('tray_id', inplace=True)
     return df
 
