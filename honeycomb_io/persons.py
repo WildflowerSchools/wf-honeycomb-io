@@ -1,10 +1,69 @@
 import honeycomb_io.core
+import honeycomb_io.environments
 import minimal_honeycomb
 import pandas as pd
 import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
+
+def fetch_all_persons(
+    output_format='list',
+    chunk_size=100,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    return_data = [
+        'person_id',
+        'person_type',
+        'name',
+        'first_name',
+        'last_name',
+        'nickname',
+        'short_name',
+        'anonymized_name',
+        'anonymized_first_name',
+        'anonymized_last_name',
+        'anonymized_nickname',
+        'anonymized_short_name',
+        'transparent_classroom_id',
+        {'assignments': [
+            'assignment_id',
+            'start',
+            'end',
+            {'environment': [
+                'environment_id',
+                'name'
+            ]}
+        ]}
+    ]
+    logger.info('Fetching all persons')
+    persons = honeycomb_io.core.fetch_all_objects(
+        object_name='Person',
+        return_data=return_data,
+        chunk_size=chunk_size,
+        client=client,
+        uri=uri,
+        token_uri=token_uri,
+        audience=audience,
+        client_id=client_id,
+        client_secret=client_secret
+    )
+    logger.info('Fetched {} persons'.format(
+        len(persons)
+    ))
+    for person in persons:
+        person['current_assignment'] = honeycomb_io.environments.get_current_assignment(person['assignments'])
+    if output_format =='list':
+        return persons
+    elif output_format == 'dataframe':
+        return generate_person_dataframe(persons)
+    else:
+        raise ValueError('Output format {} not recognized'.format(output_format))
 
 def fetch_persons(
     person_ids=None,
@@ -263,7 +322,7 @@ def generate_person_dataframe(
         persons = [dict()]
     flat_list = list()
     for person in persons:
-        flat_list.append({
+        list_element = {
             'person_id': person.get('person_id'),
             'person_type': person.get('person_type'),
             'name': person.get('name'),
@@ -276,9 +335,66 @@ def generate_person_dataframe(
             'anonymized_last_name': person.get('anonymized_last_name'),
             'anonymized_nickname': person.get('anonymized_nickname'),
             'anonymized_short_name': person.get('anonymized_short_name'),
-            'transparent_classroom_id': person.get('transparent_classroom_id')
-        })
+            'transparent_classroom_id': person.get('transparent_classroom_id'),
+
+        }
+        if 'current_assignment' in person.keys():
+            list_element['environment_name'] =  person.get('current_assignment').get('environment', {}).get('name')
+            list_element['start'] =  person.get('current_assignment').get('start')
+            list_element['end'] =  person.get('current_assignment').get('end')
+        flat_list.append(list_element)
     df = pd.DataFrame(flat_list, dtype='string')
+    df['transparent_classroom_id'] = pd.to_numeric(df['transparent_classroom_id']).astype('Int64')
+    if 'environment_name' in df.columns:
+        df = (
+            df.
+            reindex(columns=[
+                'person_id',
+                'environment_name',
+                'start',
+                'end',
+                'person_type',
+                'name',
+                'first_name',
+                'last_name',
+                'nickname',
+                'short_name',
+                'anonymized_name',
+                'anonymized_first_name',
+                'anonymized_last_name',
+                'anonymized_nickname',
+                'anonymized_short_name',
+                'transparent_classroom_id'
+            ])
+            .sort_values([
+                'environment_name',
+                'person_type',
+                'last_name'
+            ])
+        )
+    else:
+        df = (
+            df.
+            reindex(columns=[
+                'person_id',
+                'person_type',
+                'name',
+                'first_name',
+                'last_name',
+                'nickname',
+                'short_name',
+                'anonymized_name',
+                'anonymized_first_name',
+                'anonymized_last_name',
+                'anonymized_nickname',
+                'anonymized_short_name',
+                'transparent_classroom_id'
+            ])
+            .sort_values([
+                'person_type',
+                'last_name'
+            ])
+        )
     df.set_index('person_id', inplace=True)
     return df
 

@@ -2,6 +2,7 @@ import honeycomb_io.core
 import honeycomb_io.utils
 import minimal_honeycomb
 import pandas as pd
+import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -254,6 +255,33 @@ def fetch_device_assignments(
     if device_type is not None:
         df = df.loc[df['device_type'] == device_type].copy()
     return df
+
+def get_current_assignment(
+    assignments,
+    as_of=None
+):
+    if as_of is None:
+        as_of = datetime.datetime.now(tz=datetime.timezone.utc)
+    filtered_assignments = list(filter(
+        lambda assignment: (
+            (
+                assignment.get('end') is None or
+                pd.to_datetime(assignment.get('end'), utc=True) >= pd.to_datetime(as_of, utc=True)
+            ) and
+            (
+                pd.to_datetime(assignment.get('start'), utc=True) <= pd.to_datetime(as_of, utc=True)
+            )
+        ),
+        assignments
+    ))
+    if len(filtered_assignments) == 1:
+        return filtered_assignments[0]
+    elif len(filtered_assignments) == 0:
+        return {}
+    else:
+        raise ValueError('Multiple assignments found for datetime {}'.format(
+            as_of.isoformat()
+        ))
 
 def filter_assignments(
     assignments,
