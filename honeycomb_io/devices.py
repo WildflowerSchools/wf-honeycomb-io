@@ -32,6 +32,21 @@ def fetch_all_devices(
                 'environment_id',
                 'name'
             ]}
+        ]},
+        {'position_assignments': [
+            'position_assignment_id',
+            'start',
+            'end',
+            'coordinates',
+            {'coordinate_space': [
+                'space_id',
+                'name',
+                {'environment': [
+                    'environment_id',
+                    'name'
+                ]}
+
+            ]}
         ]}
     ]
     logger.info('Fetching all devices')
@@ -51,6 +66,7 @@ def fetch_all_devices(
     ))
     for device in devices:
         device['current_assignment'] = honeycomb_io.environments.get_current_assignment(device['assignments'])
+        device['current_position_assignment'] = honeycomb_io.environments.get_current_assignment(device['position_assignments'])
     if output_format =='list':
         return devices
     elif output_format == 'dataframe':
@@ -318,6 +334,8 @@ def generate_device_dataframe(
             list_element['environment_name'] =  device.get('current_assignment').get('environment', {}).get('name')
             list_element['start'] =  device.get('current_assignment').get('start')
             list_element['end'] =  device.get('current_assignment').get('end')
+            list_element['coordinate_space_name'] =  device.get('current_position_assignment').get('coordinate_space', {}).get('name')
+            list_element['coordinates'] = device.get('current_position_assignment').get('coordinates')
         flat_list.append(list_element)
     df = pd.DataFrame(flat_list, dtype='string')
     if 'environment_name' in df.columns:
@@ -332,7 +350,9 @@ def generate_device_dataframe(
                 'device_part_number',
                 'device_serial_number',
                 'device_tag_id',
-                'device_name'
+                'device_name',
+                'coordinate_space_name',
+                'coordinates'
             ])
             .sort_values([
                 'environment_name',
