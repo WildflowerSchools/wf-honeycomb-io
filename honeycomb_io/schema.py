@@ -12,7 +12,7 @@ SCHEMA = {
     },
     'PositionAssignment': {
         'create_endpoint_name': 'assignToPosition',
-        'update_endpoint_argument_type': 'positionAssignmentInput!'
+        'create_endpoint_argument_type': 'PositionAssignmentInput!'
     },
     'Datapoint': {
         'id_field_name': 'data_id'
