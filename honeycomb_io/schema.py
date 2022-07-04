@@ -10,6 +10,10 @@ SCHEMA = {
     'MaterialAssignment': {
         'create_endpoint_name': 'assignToMaterial'
     },
+    'PositionAssignment': {
+        'create_endpoint_name': 'assignToPosition',
+        'create_endpoint_argument_type': 'PositionAssignmentInput!'
+    },
     'Datapoint': {
         'id_field_name': 'data_id'
     },

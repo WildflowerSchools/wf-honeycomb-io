@@ -145,6 +145,51 @@ def fetch_environment_by_name(environment_name):
         return df.loc[0]
     return None
 
+def assign_objects_to_environment(
+    object_ids,
+    assigned_type,
+    environment_id=None,
+    environment_name=None,
+    start=None,
+    end=None,
+    client=None,
+    uri=None,
+    token_uri=None,
+    audience=None,
+    client_id=None,
+    client_secret=None
+):
+    if environment_id is None:
+        environment_id = honeycomb_io.environments.fetch_environment_id(
+            environment_id=environment_id,
+            environment_name=environment_name,
+            client=client,
+            uri=uri,
+            token_uri=token_uri,
+            audience=audience,
+            client_id=client_id,
+            client_secret=client_secret
+        )
+    start_honeycomb = honeycomb_io.utils.to_honeycomb_datetime(start)
+    end_honeycomb = honeycomb_io.utils.to_honeycomb_datetime(end)
+    data = list()
+    for object_id in object_ids:
+        data.append({
+            'environment': environment_id,
+            'assigned_type': assigned_type,
+            'assigned': object_id,
+            'start': start_honeycomb,
+            'end': end_honeycomb
+        })
+    assignment_ids = honeycomb_io.create_objects(
+        object_name='Assignment',
+        data=data
+    )
+    return assignment_ids
+
+
+
+
 # Used by:
 # honeycomb_io.uwb_data
 def fetch_device_assignments(
