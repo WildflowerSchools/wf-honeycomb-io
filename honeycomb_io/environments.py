@@ -20,9 +20,12 @@ def fetch_all_environments(
     return_data = [
         'environment_id',
         'name',
+        'display_name',
         'transparent_classroom_id',
         'description',
         'location',
+        'timezone_name',
+        'timezone_abbreviation'
     ]
     logger.info('Fetching all environments')
     environments=honeycomb_io.core.fetch_all_objects(
@@ -56,9 +59,12 @@ def generate_environment_dataframe(
         flat_list.append({
             'environment_id': environment.get('environment_id'),
             'environment_name': environment.get('name'),
+            'environment_display_name': environment.get('display_name'),
             'environment_transparent_classroom_id': environment.get('transparent_classroom_id'),
             'environment_description': environment.get('description'),
             'environment_location': environment.get('location'),
+            'environment_timezone_name': environment.get('timezone_name'),
+            'environment_timezone_abbreviation': environment.get('timezone_abbreviation'),
         })
     df = pd.DataFrame(flat_list, dtype='string')
     df['environment_transparent_classroom_id'] = pd.to_numeric(df['environment_transparent_classroom_id']).astype('Int64')
