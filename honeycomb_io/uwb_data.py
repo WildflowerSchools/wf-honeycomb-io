@@ -617,7 +617,7 @@ def write_cuwb_data(
     client_secret=None
 ):
     if data_type == 'position':
-        data_ids = write_position_data(
+        data_ids = write_cuwb_position_data(
             position_data=parsed_data,
             chunk_size=chunk_size,
             client=client,
@@ -629,7 +629,7 @@ def write_cuwb_data(
         )
         return data_ids
     elif data_type == 'accelerometer':
-        data_ids = write_accelerometer_data(
+        data_ids = write_cuwb_accelerometer_data(
             accelerometer_data=parsed_data,
             chunk_size=chunk_size,
             client=client,
@@ -641,7 +641,7 @@ def write_cuwb_data(
         )
         return data_ids
     elif data_type == 'gyroscope':
-        data_ids = write_gyroscope_data(
+        data_ids = write_cuwb_gyroscope_data(
             gyroscope_data=parsed_data,
             chunk_size=chunk_size,
             client=client,
@@ -653,7 +653,7 @@ def write_cuwb_data(
         )
         return data_ids
     elif data_type == 'magnetometer':
-        data_ids = write_magnetometer_data(
+        data_ids = write_cuwb_magnetometer_data(
             magnetometer_data=parsed_data,
             chunk_size=chunk_size,
             client=client,
@@ -669,7 +669,7 @@ def write_cuwb_data(
             data_type
         ))
 
-def write_position_data(
+def write_cuwb_position_data(
     position_data,
     chunk_size=1000,
     client=None,
@@ -711,7 +711,7 @@ def write_position_data(
     ))
     return position_data_ids
 
-def write_accelerometer_data(
+def write_cuwb_accelerometer_data(
     accelerometer_data,
     chunk_size=1000,
     client=None,
@@ -753,7 +753,7 @@ def write_accelerometer_data(
     ))
     return accelerometer_data_ids
 
-def write_gyroscope_data(
+def write_cuwb_gyroscope_data(
     gyroscope_data,
     chunk_size=1000,
     client=None,
@@ -795,7 +795,7 @@ def write_gyroscope_data(
     ))
     return gyroscope_data_ids
 
-def write_magnetometer_data(
+def write_cuwb_magnetometer_data(
     magnetometer_data,
     chunk_size=1000,
     client=None,
