@@ -201,21 +201,30 @@ def fetch_devices(
         logger.info('Fetched {} devices with specified device characteristics'.format(
             len(devices)
         ))
-        logger.info('Filtering based on specified assignment characteristics')
-        filtered_devices = list(filter(
-            lambda device: len(honeycomb_io.environments.filter_assignments(
-                assignments=device.get('assignments', []),
-                environment_id=environment_id,
-                environment_name=environment_name,
-                start=start,
-                end=end
-            )) > 0,
-            devices
-        ))
-        logger.info('Found {} devices with specified assignment characteristics'.format(
-            len(filtered_devices)
-        ))
-        return_list = filtered_devices
+        if (
+            environment_id is None and
+            environment_name is None and
+            start is None and
+            end is None
+        ):
+            logger.info('No assignment filters specified. Returning all devices.')
+            return_list = devices
+        else:
+            logger.info('Filtering based on specified assignment characteristics')
+            filtered_devices = list(filter(
+                lambda device: len(honeycomb_io.environments.filter_assignments(
+                    assignments=device.get('assignments', []),
+                    environment_id=environment_id,
+                    environment_name=environment_name,
+                    start=start,
+                    end=end
+                )) > 0,
+                devices
+            ))
+            logger.info('Found {} devices with specified assignment characteristics'.format(
+                len(filtered_devices)
+            ))
+            return_list = filtered_devices
     else:
         # No device characteristics were specified, so we search assignments instead
         if environment_id is None:
